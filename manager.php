@@ -46,9 +46,10 @@ class GearmanManager {
     /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
      */
-    const LOG_LEVEL_ERROR  = 1;
+    const LOG_LEVEL_INFO = 1;
     const LOG_LEVEL_PROC_INFO = 2;
     const LOG_LEVEL_WORKER_INFO = 3;
+    const LOG_LEVEL_DEBUG = 4;
 
     /**
      * Holds the worker configuration
@@ -252,14 +253,17 @@ class GearmanManager {
         if(isset($opts["v"])){
             switch($opts["v"]){
                 case false:
-                    $this->verbose = GearmanManager::LOG_LEVEL_ERROR;
+                    $this->verbose = GearmanManager::LOG_LEVEL_INFO;
                     break;
                 case "v":
                     $this->verbose = GearmanManager::LOG_LEVEL_PROC_INFO;
                     break;
                 case "vv":
-                default:
                     $this->verbose = GearmanManager::LOG_LEVEL_WORKER_INFO;
+                    break;
+                case "vvv":
+                    $this->verbose = GearmanManager::LOG_LEVEL_DEBUG;
+                    break;
             }
         }
 
@@ -603,39 +607,45 @@ class GearmanManager {
 
         }
 
-        $this->log("($h) Job: $f", GearmanManager::LOG_LEVEL_WORKER_INFO);
+        $this->log("($h) Starting Job: $f", GearmanManager::LOG_LEVEL_WORKER_INFO);
 
         $this->log("($h) Workload: $w", GearmanManager::LOG_LEVEL_WORKER_INFO);
+
+        $log = array();
 
         /**
          * Run the real function here
          */
-        $result = $f($job);
+        $result = $f($job, $log);
 
-        $return = $result;
+        if(!empty($log)){
+            foreach($log as $l){
 
-        if(is_array($result)){
-            if(isset($result["log"])){
-                $this->log("($h) Result: $result[log]", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                if(!is_scalar($l)){
+                    $l = print_r($l, true);
+                }
+
+                if(strlen($l) > 256){
+                    $l = substr($l, 0, 256)."...(truncated)";
+                }
+
+                $this->log("($h) $l", GearmanManager::LOG_LEVEL_WORKER_INFO);
+
             }
-            if(isset($result["result"])){
-                $return = $result["result"];
-            }
         }
 
-        if(is_scalar($return)){
-            $log = $return;
-        } else {
-            $log = print_r($return, true);
+        if(!is_scalar($result)){
+            $result = print_r($result, true);
         }
 
-        if(strlen($log) > 256){
-            $log = substr($log, 0, 256)."...(truncated)";
+        if(strlen($result) > 256){
+            $result = substr($result, 0, 256)."...(truncated)";
         }
 
-        $this->log("($h) Return: $log", GearmanManager::LOG_LEVEL_WORKER_INFO);
+        $this->log("($h) $result", GearmanManager::LOG_LEVEL_DEBUG);
 
-        return $return;
+
+        return $result;
 
     }
 
@@ -710,16 +720,49 @@ class GearmanManager {
     /**
      * Logs data to disk or stdout
      */
-    public function log($message, $level=GearmanManager::LOG_LEVEL_ERROR) {
+    private function log($message, $level=GearmanManager::LOG_LEVEL_INFO) {
+
+        static $init = false;
+
+        if(!$init){
+            $init = true;
+
+            if($this->log_file_handle){
+                $ds = date("Y-m-d H:i:s");
+                fwrite($this->log_file_handle, "Date                  PID   Type   Message\n");
+            } else {
+                echo "PID   Type   Message\n";
+            }
+
+        }
 
         if($level > $this->verbose) return;
 
-        $ds = date("Y-m-d H:i:s");
+        $label = "";
+
+        switch($level) {
+            case GearmanManager::LOG_LEVEL_INFO;
+                $label = "INFO  ";
+                break;
+            case GearmanManager::LOG_LEVEL_PROC_INFO:
+                $label = "PROC  ";
+                break;
+            case GearmanManager::LOG_LEVEL_WORKER_INFO:
+                $label = "WORKER";
+                break;
+            case GearmanManager::LOG_LEVEL_DEBUG:
+                $label = "DEBUG ";
+                break;
+        }
+
+
+        $log_pid = str_pad($this->pid, 5, " ", STR_PAD_LEFT);
 
         if($this->log_file_handle){
-            fwrite($this->log_file_handle, "[$ds] $message\n");
+            $ds = date("Y-m-d H:i:s");
+            fwrite($this->log_file_handle, "[$ds] $log_pid $label $message\n");
         } else {
-            echo "[$ds] ($this->pid) $message\n";
+            echo "$log_pid $label $message\n";
         }
 
     }

@@ -1,15 +1,14 @@
 <?php
 
-function reverse_string($job) {
+function reverse_string($job, &$log) {
 
     $workload = $job->workload();
 
     $result = strrev($workload);
 
-    return array(
-        "log" => "Success",
-        "result"=>$result
-    );
+    $log[] = "Success";
+
+    return $result;
 
 }
 
