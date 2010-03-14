@@ -734,7 +734,7 @@ class GearmanManager {
         }
         echo "Gearman worker manager script\n\n";
         echo "USAGE:\n";
-        echo "  # ".__FILE__." -h | -c CONFIG [-v] [-l LOG_FILE] [-d] [-v] [-a] [-p PID_FILE]\n\n";
+        echo "  # ".__FILE__." -h | -c CONFIG [-v] [-l LOG_FILE] [-d] [-v] [-a] [-P PID_FILE]\n\n";
         echo "OPTIONS:\n";
         echo "  -a           Automatically check for new worker code\n";
         echo "  -c CONFIG    Worker configuration file\n";
