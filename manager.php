@@ -120,6 +120,31 @@ class GearmanManager {
     private $wait_for_signal = false;
 
     /**
+     * Directory where worker functions are found
+     */
+    private $worker_dir = "";
+
+    /**
+     * Number of workers that do all jobs
+     */
+    private $do_all_count = 0;
+
+    /**
+     * Maximum time a worker will run
+     */
+    private $max_run_time = 3600;
+
+    /**
+     * Servers that workers connect to
+     */
+    private $servers = array();
+
+    /**
+     * List of functions available for work
+     */
+    private $functions = array();
+
+    /**
      * Creates the manager and gets things going
      *
      */
@@ -149,6 +174,30 @@ class GearmanManager {
          */
         $this->getopt();
 
+        /**
+         * Load up the workers
+         */
+        $worker_files = glob($this->worker_dir."/*.php");
+
+        if(empty($worker_files)){
+            $this->log("No workers found");
+            posix_kill($this->pid, SIGUSR1);
+            exit();
+        }
+
+        foreach($worker_files as $file){
+            $function = substr(basename($file), 0, -4);
+            if(empty($this->functions[$function])){
+                $this->functions[$function] = array("count"=>1);
+            }
+        }
+
+
+        /**
+         * Validate workers in the helper process
+         */
+        $this->fork_me("validate_workers");
+
         $this->log("Started with pid $this->pid", GearmanManager::LOG_LEVEL_PROC_INFO);
 
         /**
@@ -161,6 +210,8 @@ class GearmanManager {
          * Main processing loop for the parent process
          */
         while(!$this->stop_work || count($this->children)) {
+
+            $status = null;
 
             /**
              * Check for exited children
@@ -223,9 +274,9 @@ class GearmanManager {
      */
     private function getopt() {
 
-        $opts = getopt("ac:dhl:P:v::");
+        $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:");
 
-        if(isset($opts["h"])){
+        if(isset($opts["H"])){
             $this->show_help();
         }
 
@@ -274,18 +325,49 @@ class GearmanManager {
             }
         }
 
-        if(empty($opts["c"]) || !file_exists($opts["c"])){
-            $this->show_help("Config file not found.");
+        if(isset($opts["c"]) && !file_exists($opts["c"])){
+            $this->show_help("Config file $opts[c] not found.");
         }
 
         if(isset($opts["a"])){
             $this->check_code = true;
         }
 
+        if(isset($opts["w"])){
+            $this->worker_dir = $opts["w"];
+        } else {
+            $this->worker_dir = "./workers";
+        }
+
+        if(!file_exists($this->worker_dir)){
+            $this->show_help("Worker dir ".$this->worker_dir." not found");
+        }
+
+
+        if(isset($opts["x"])){
+            $this->max_run_time = (int)$opts["x"];
+        }
+
+        if(isset($opts["D"])){
+            $this->do_all_count = (int)$opts["D"];
+        }
+
+        if(isset($opts["h"])){
+            if(!is_array($opts["h"])){
+                $this->servers = array($opts["h"]);
+            } else {
+                $this->servers = $opts["h"];
+            }
+        } else {
+            $this->servers = array("127.0.0.1");
+        }
+
         /**
          * parse the config file
          */
-        $this->parse_config($opts["c"]);
+        if(isset($opts["c"])){
+            $this->parse_config($opts["c"]);
+        }
 
     }
 
@@ -300,64 +382,22 @@ class GearmanManager {
 
         $this->log("Loading configuration from $file");
 
-        require $file;
+        if(substr($file, -4) == ".php"){
 
-        if(!isset($gearman_config)){
+            require $file;
+
+        } elseif(substr($file, -4) == ".ini"){
+
+            $gearman_config = parse_ini_file($file, true);
+
+        }
+
+        if(empty($gearman_config)){
             $this->show_help("No configuration found in $file");
         }
 
-        $this->config = $gearman_config;
-
-        if(empty($this->config["worker_dir"])){
-            $this->config["worker_dir"] = ".";
-        }
-
-        if(!file_exists($this->config["worker_dir"])){
-            $this->show_help("Worker dir ".$this->config["worker_dir"]." not found");
-        }
-
-        $this->log("Loading workers in ".$this->config["worker_dir"]);
-
-        $this->fork_me("validate_workers");
-
-        $worker_files = glob($this->config["worker_dir"]."/*.php");
-
-        if(empty($worker_files)){
-            $this->show_help("No workers found in ".$this->config["worker_dir"]);
-        }
-
-        foreach($worker_files as $file){
-            $function = substr(basename($file), 0, -4);
-            if(!isset($this->config["workers"][$function])){
-                $this->config["workers"][$function] = array(
-                    "count" => 1
-                );
-            }
-        }
-
-
-        if(!isset($this->config["max_run_time"])){
-            /**
-             * Default run time to one hour
-             */
-            $this->config["max_run_time"] = 3600;
-        }
-
-        if(!isset($this->config["servers"])){
-            /**
-             * Default to localhost
-             */
-            $this->config["servers"] = array("127.0.0.1");
-        } elseif(!is_array($this->config["servers"])) {
-
-            $this->show_help("Invalid value for servers in $file");
-        }
-
-        if(!isset($this->config["timeout"])){
-            /**
-             * Default timeout to 5 minutes
-             */
-            $this->config["timeout"] = 300;
+        foreach($gearman_config as $function=>$data){
+            $this->functions[$function] = $data;
         }
 
     }
@@ -398,7 +438,9 @@ class GearmanManager {
 
         $this->log("Helper forked", GearmanManager::LOG_LEVEL_PROC_INFO);
 
-        $worker_files = glob($this->config["worker_dir"]."/*.php");
+        $this->log("Loading workers in ".$this->worker_dir);
+
+        $worker_files = glob($this->worker_dir."/*.php");
 
         if(empty($worker_files)){
             $this->log("No workers found");
@@ -447,18 +489,20 @@ class GearmanManager {
      */
     private function bootstrap() {
 
+        $function_count = array();
+
         /**
          * If we have "do_all" workers, start them first
          * do_all workers register all functions
          */
-        if(!empty($this->config["do_all"]) && is_int($this->config["do_all"])){
+        if(!empty($this->do_all_count) && is_int($this->do_all_count)){
 
-            for($x=0;$x<$this->config["do_all"];$x++){
+            for($x=0;$x<$this->do_all_count;$x++){
                 $this->start_worker();
             }
 
             foreach(array_keys($this->config["workers"]) as $worker){
-                $this->workers[$worker] = $this->config["do_all"];
+                $function_count[$worker] = $this->do_all_count;
             }
 
         }
@@ -467,15 +511,15 @@ class GearmanManager {
          * Next we loop the workers and ensure we have enough running
          * for each worker
          */
-        foreach($this->config["workers"] as $worker=>$config) {
+        foreach($this->functions as $worker=>$config) {
 
-            if(empty($this->workers[$worker])){
-                $this->workers[$worker] = 0;
+            if(empty($function_count[$worker])){
+                $function_count[$worker] = 0;
             }
 
-            while($this->workers[$worker] < $config["count"]){
+            while($function_count[$worker] < $config["count"]){
                 $this->start_worker($worker);
-                $this->workers[$worker]++;;
+                $function_count[$worker]++;;
             }
 
             /**
@@ -520,7 +564,7 @@ class GearmanManager {
 
                 $thisWorker->setTimeout(5000);
 
-                foreach($this->config["servers"] as $s){
+                foreach($this->servers as $s){
                     $this->log("Adding server $s", GearmanManager::LOG_LEVEL_WORKER_INFO);
                     $thisWorker->addServer($s);
                 }
@@ -554,7 +598,7 @@ class GearmanManager {
                      * Check the running time of the current child. If it has
                      * been too long, stop working.
                      */
-                    if($this->config["max_run_time"] > 0 && time() - $start > $this->config["max_run_time"]) {
+                    if($this->max_run_time > 0 && time() - $start > $this->max_run_time) {
                         $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
                         $this->stop_work = true;
                     }
@@ -599,7 +643,7 @@ class GearmanManager {
 
         if(!function_exists($f)){
 
-            @include $this->config["worker_dir"]."/$f.php";
+            @include $this->worker_dir."/$f.php";
             if(!function_exists($f)){
                 $this->log("Function $f not found");
                 return;
@@ -724,6 +768,8 @@ class GearmanManager {
 
         static $init = false;
 
+        if($level > $this->verbose) return;
+
         if(!$init){
             $init = true;
 
@@ -735,8 +781,6 @@ class GearmanManager {
             }
 
         }
-
-        if($level > $this->verbose) return;
 
         $label = "";
 
@@ -781,11 +825,14 @@ class GearmanManager {
         echo "OPTIONS:\n";
         echo "  -a           Automatically check for new worker code\n";
         echo "  -c CONFIG    Worker configuration file\n";
-        echo "  -d           Daemon, detach and run in the background.\n";
-        echo "  -h           Shows this help\n";
+        echo "  -d           Daemon, detach and run in the background\n";
+        echo "  -D NUMBER    Start NUMBER workers that do all jobs\n";
+        echo "  -H           Shows this help\n";
         echo "  -l LOG_FILE  Log output to LOG_FILE\n";
-        echo "  -P PID_FILE  File to write process ID out to.\n";
-        echo "  -v           Increase verbosity level by one.\n";
+        echo "  -P PID_FILE  File to write process ID out to\n";
+        echo "  -v           Increase verbosity level by one\n";
+        echo "  -w DIR       Directory where workers are located\n";
+        echo "  -x SECONDS   Maximum seconds for a worker to live\n";
         echo "\n";
         exit();
     }
