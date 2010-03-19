@@ -451,7 +451,8 @@ class GearmanManager {
         foreach($worker_files as $file){
             $function = substr(basename($file), 0, -4);
             @include $file;
-            if(!function_exists($function)){
+            if(!function_exists($function) &&
+               (!class_exists($function) || !method_exists($function, "run"))){
                 $this->log("Function $function not found in $file");
                 posix_kill($this->pid, SIGUSR2);
                 exit();
@@ -501,7 +502,7 @@ class GearmanManager {
                 $this->start_worker();
             }
 
-            foreach(array_keys($this->config["workers"]) as $worker){
+            foreach(array_keys($this->functions) as $worker){
                 $function_count[$worker] = $this->do_all_count;
             }
 
@@ -553,7 +554,7 @@ class GearmanManager {
                 $this->pid = getmypid();
 
                 if($worker == "all"){
-                    $worker_list = array_keys($this->config["workers"]);
+                    $worker_list = array_keys($this->functions);
                 } else {
                     $worker_list = array($worker);
                 }
@@ -635,16 +636,27 @@ class GearmanManager {
      */
     public function do_job($job) {
 
+        static $objects;
+
+        if($objects===null) $objects = array();
+
         $w = $job->workload();
 
         $h = $job->handle();
 
         $f = $job->functionName();
 
-        if(!function_exists($f)){
+        if(empty($objects[$f]) && !function_exists($f) && !class_exists($f)){
 
             @include $this->worker_dir."/$f.php";
-            if(!function_exists($f)){
+
+            if(class_exists($f) && method_exists($f, "run")){
+
+                $this->log("Creating a $f object", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                $objects[$f] = new $f();
+
+            } elseif(!function_exists($f)) {
+
                 $this->log("Function $f not found");
                 return;
             }
@@ -660,7 +672,11 @@ class GearmanManager {
         /**
          * Run the real function here
          */
-        $result = $f($job, $log);
+        if(isset($objects[$f])){
+            $result = $objects[$f]->run($job, $log);
+        } else {
+            $result = $f($job, $log);
+        }
 
         if(!empty($log)){
             foreach($log as $l){
@@ -678,16 +694,24 @@ class GearmanManager {
             }
         }
 
-        if(!is_scalar($result)){
-            $result = print_r($result, true);
+        $result_log = $result;
+
+        if(!is_scalar($result_log)){
+            $result_log = print_r($result_log, true);
         }
 
-        if(strlen($result) > 256){
-            $result = substr($result, 0, 256)."...(truncated)";
+        if(strlen($result_log) > 256){
+            $result_log = substr($result_log, 0, 256)."...(truncated)";
         }
 
-        $this->log("($h) $result", GearmanManager::LOG_LEVEL_DEBUG);
+        $this->log("($h) $result_log", GearmanManager::LOG_LEVEL_DEBUG);
 
+        /**
+         * Workaround for PECL bug #17114
+         * http://pecl.php.net/bugs/bug.php?id=17114
+         */
+        $type = gettype($result);
+        settype($result, $type);
 
         return $result;
 
