@@ -1,4 +1,3 @@
-#!/usr/bin/env php
 <?php
 
 /**
@@ -50,99 +49,105 @@ class GearmanManager {
     const LOG_LEVEL_PROC_INFO = 2;
     const LOG_LEVEL_WORKER_INFO = 3;
     const LOG_LEVEL_DEBUG = 4;
+    const LOG_LEVEL_CRAZY = 5;
 
     /**
      * Holds the worker configuration
      */
-    private $config = array();
+    protected $config = array();
 
     /**
      * Boolean value that determines if the running code is the parent or a child
      */
-    private $ischild = false;
+    protected $ischild = false;
 
     /**
      * When true, workers will stop look for jobs and the parent process will
      * kill off all running children
      */
-    private $stop_work = false;
+    protected $stop_work = false;
+
+    /**
+     * The timestamp when the signal was received to stop working
+     */
+    protected $stop_time = 0;
 
     /**
      * Holds the resource for the log file
      */
-    private $log_file_handle;
+    protected $log_file_handle;
 
     /**
      * Verbosity level for the running script. Set via -v option
      */
-    private $verbose = 0;
+    protected $verbose = 0;
 
     /**
      * The array of running child processes
      */
-    private $children = array();
+    protected $children = array();
 
     /**
      * The array of jobs that have workers running
      */
-    private $jobs = array();
+    protected $jobs = array();
 
     /**
      * The PID of the running process. Set for parent and child processes
      */
-    private $pid = 0;
+    protected $pid = 0;
 
     /**
      * PID file for the parent process
      */
-    private $pid_file = "";
+    protected $pid_file = "";
 
     /**
      * PID of helper child
      */
-    private $helper_pid = 0;
+    protected $helper_pid = 0;
 
     /**
      * If true, the worker code directory is checked for updates and workers
      * are restarted automatically.
      */
-    private $check_code = false;
+    protected $check_code = false;
 
     /**
      * Holds the last timestamp of when the code was checked for updates
      */
-    private $last_check_time = 0;
+    protected $last_check_time = 0;
 
     /**
      * When forking helper children, the parent waits for a signal from them
      * to continue doing anything
      */
-    private $wait_for_signal = false;
+    protected $wait_for_signal = false;
 
     /**
      * Directory where worker functions are found
      */
-    private $worker_dir = "";
+    protected $worker_dir = "";
 
     /**
      * Number of workers that do all jobs
      */
-    private $do_all_count = 0;
+    protected $do_all_count = 0;
 
     /**
      * Maximum time a worker will run
      */
-    private $max_run_time = 3600;
+    protected $max_run_time = 3600;
 
     /**
      * Servers that workers connect to
      */
-    private $servers = array();
+    protected $servers = array();
 
     /**
      * List of functions available for work
      */
-    private $functions = array();
+    protected $functions = array();
 
     /**
      * Creates the manager and gets things going
@@ -165,14 +170,14 @@ class GearmanManager {
         $this->pid = getmypid();
 
         /**
-         * Register signal listeners
-         */
-        $this->register_ticks();
-
-        /**
          * Parse command line options. Loads the config file as well
          */
         $this->getopt();
+
+        /**
+         * Register signal listeners
+         */
+        $this->register_ticks();
 
         /**
          * Load up the workers
@@ -237,6 +242,11 @@ class GearmanManager {
             }
 
 
+            if($this->stop_work && time() - $this->stop_time > 60){
+                $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
+                $this->stop_children(SIGKILL);
+            }
+
             /**
              * php will eat up your cpu if you don't have this
              */
@@ -272,7 +282,7 @@ class GearmanManager {
      * Parses the command line options
      *
      */
-    private function getopt() {
+    protected function getopt() {
 
         $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:");
 
@@ -314,6 +324,10 @@ class GearmanManager {
                     break;
                 case "vvv":
                     $this->verbose = GearmanManager::LOG_LEVEL_DEBUG;
+                    break;
+                default:
+                case "vvvv":
+                    $this->verbose = GearmanManager::LOG_LEVEL_CRAZY;
                     break;
             }
         }
@@ -378,7 +392,7 @@ class GearmanManager {
      * @param   string    $file     The config file. Just pass so we don't have
      *                              to keep it around in a var
      */
-    private function parse_config($file) {
+    protected function parse_config($file) {
 
         $this->log("Loading configuration from $file");
 
@@ -409,7 +423,7 @@ class GearmanManager {
      * @param   string  $method  Class method to run after forking
      *
      */
-    private function fork_me($method){
+    protected function fork_me($method){
         $this->wait_for_signal = true;
         $pid = pcntl_fork();
         switch($pid) {
@@ -422,7 +436,7 @@ class GearmanManager {
                 break;
             default:
                 $this->helper_pid = $pid;
-                while($this->wait_for_signal) {
+                while($this->wait_for_signal && !$this->stop_work) {
                     usleep(5000);
                 }
                 break;
@@ -434,7 +448,7 @@ class GearmanManager {
      * Forked method that validates the worker code and checks it if desired
      *
      */
-    private function validate_workers(){
+    protected function validate_workers(){
 
         $this->log("Helper forked", GearmanManager::LOG_LEVEL_PROC_INFO);
 
@@ -448,16 +462,7 @@ class GearmanManager {
             exit();
         }
 
-        foreach($worker_files as $file){
-            $function = substr(basename($file), 0, -4);
-            @include $file;
-            if(!function_exists($function) &&
-               (!class_exists($function) || !method_exists($function, "run"))){
-                $this->log("Function $function not found in $file");
-                posix_kill($this->pid, SIGUSR2);
-                exit();
-            }
-        }
+        $this->validate_lib_workers($worker_files);
 
         /**
          * Since we got here, all must be ok, send a CONTINUE
@@ -488,7 +493,7 @@ class GearmanManager {
      * Bootstap a set of workers and any vars that need to be set
      *
      */
-    private function bootstrap() {
+    protected function bootstrap() {
 
         $function_count = array();
 
@@ -537,11 +542,7 @@ class GearmanManager {
 
     }
 
-
-    /**
-     * Starts a child process and creates a GearmanWorker object
-     */
-    private function start_worker($worker="all") {
+    protected function start_worker($worker="all") {
 
         $pid = pcntl_fork();
 
@@ -551,6 +552,8 @@ class GearmanManager {
 
                 $this->ischild = true;
 
+                $this->register_ticks(false);
+
                 $this->pid = getmypid();
 
                 if($worker == "all"){
@@ -559,54 +562,7 @@ class GearmanManager {
                     $worker_list = array($worker);
                 }
 
-                $thisWorker = new GearmanWorker();
-
-                $thisWorker->addOptions(GEARMAN_WORKER_NON_BLOCKING);
-
-                $thisWorker->setTimeout(5000);
-
-                foreach($this->servers as $s){
-                    $this->log("Adding server $s", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                    $thisWorker->addServer($s);
-                }
-
-                foreach($worker_list as $w){
-                    $this->log("Adding job $w", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                    $thisWorker->addFunction($w, array($this, "do_job"), $this);
-                }
-
-                $this->register_ticks(false);
-
-                $start = time();
-
-                while(!$this->stop_work){
-
-                    if(@$thisWorker->work() ||
-                       $thisWorker->returnCode() == GEARMAN_IO_WAIT ||
-                       $thisWorker->returnCode() == GEARMAN_NO_JOBS) {
-
-                        if ($thisWorker->returnCode() == GEARMAN_SUCCESS) continue;
-
-                        if (!@$thisWorker->wait()){
-                            if ($thisWorker->returnCode() == GEARMAN_NO_ACTIVE_FDS){
-                                sleep(5);
-                            }
-                        }
-
-                    }
-
-                    /**
-                     * Check the running time of the current child. If it has
-                     * been too long, stop working.
-                     */
-                    if($this->max_run_time > 0 && time() - $start > $this->max_run_time) {
-                        $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                        $this->stop_work = true;
-                    }
-
-                }
-
-                $thisWorker->unregisterAll();
+                $this->start_lib_worker($worker_list);
 
                 $this->log("Child exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
 
@@ -630,102 +586,17 @@ class GearmanManager {
 
     }
 
-    /**
-     * Wrapper function handler for all registered functions
-     * This allows us to do some nice logging when jobs are started/finished
-     */
-    public function do_job($job) {
 
-        static $objects;
-
-        if($objects===null) $objects = array();
-
-        $w = $job->workload();
-
-        $h = $job->handle();
-
-        $f = $job->functionName();
-
-        if(empty($objects[$f]) && !function_exists($f) && !class_exists($f)){
-
-            @include $this->worker_dir."/$f.php";
-
-            if(class_exists($f) && method_exists($f, "run")){
-
-                $this->log("Creating a $f object", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                $objects[$f] = new $f();
-
-            } elseif(!function_exists($f)) {
-
-                $this->log("Function $f not found");
-                return;
-            }
-
-        }
-
-        $this->log("($h) Starting Job: $f", GearmanManager::LOG_LEVEL_WORKER_INFO);
-
-        $this->log("($h) Workload: $w", GearmanManager::LOG_LEVEL_WORKER_INFO);
-
-        $log = array();
-
-        /**
-         * Run the real function here
-         */
-        if(isset($objects[$f])){
-            $result = $objects[$f]->run($job, $log);
-        } else {
-            $result = $f($job, $log);
-        }
-
-        if(!empty($log)){
-            foreach($log as $l){
-
-                if(!is_scalar($l)){
-                    $l = print_r($l, true);
-                }
-
-                if(strlen($l) > 256){
-                    $l = substr($l, 0, 256)."...(truncated)";
-                }
-
-                $this->log("($h) $l", GearmanManager::LOG_LEVEL_WORKER_INFO);
-
-            }
-        }
-
-        $result_log = $result;
-
-        if(!is_scalar($result_log)){
-            $result_log = print_r($result_log, true);
-        }
-
-        if(strlen($result_log) > 256){
-            $result_log = substr($result_log, 0, 256)."...(truncated)";
-        }
-
-        $this->log("($h) $result_log", GearmanManager::LOG_LEVEL_DEBUG);
-
-        /**
-         * Workaround for PECL bug #17114
-         * http://pecl.php.net/bugs/bug.php?id=17114
-         */
-        $type = gettype($result);
-        settype($result, $type);
-
-        return $result;
-
-    }
 
     /**
      * Stops all running children
      */
-    private function stop_children() {
+    protected function stop_children($signal=SIGTERM) {
         $this->log("Stopping children", GearmanManager::LOG_LEVEL_PROC_INFO);
 
         foreach($this->children as $pid=>$worker){
             $this->log("Stopping child $pid ($worker)", GearmanManager::LOG_LEVEL_PROC_INFO);
-            posix_kill($pid, SIGTERM);
+            posix_kill($pid, $signal);
         }
 
     }
@@ -733,9 +604,10 @@ class GearmanManager {
     /**
      * Registers the process signal listeners
      */
-    private function register_ticks($parent=true) {
+    protected function register_ticks($parent=true) {
 
         if($parent){
+            $this->log("Registering signals for parent", GearmanManager::LOG_LEVEL_DEBUG);
             pcntl_signal(SIGTERM, array($this, "signal"));
             pcntl_signal(SIGINT,  array($this, "signal"));
             pcntl_signal(SIGUSR1,  array($this, "signal"));
@@ -743,7 +615,11 @@ class GearmanManager {
             pcntl_signal(SIGCONT,  array($this, "signal"));
             pcntl_signal(SIGHUP,  array($this, "signal"));
         } else {
-            pcntl_signal(SIGTERM, array($this, "signal"));
+            $this->log("Registering signals for child", GearmanManager::LOG_LEVEL_DEBUG);
+            $res = pcntl_signal(SIGTERM, array($this, "signal"));
+            if(!$res){
+                exit();
+            }
         }
     }
 
@@ -751,6 +627,8 @@ class GearmanManager {
      * Handles signals
      */
     public function signal($signo) {
+
+        static $term_count = 0;
 
         if($this->ischild){
 
@@ -772,7 +650,13 @@ class GearmanManager {
                 case SIGTERM:
                     $this->log("Shutting down...");
                     $this->stop_work = true;
-                    $this->stop_children();
+                    $this->stop_time = time();
+                    $term_count++;
+                    if($term_count < 5){
+                        $this->stop_children();
+                    } else {
+                        $this->stop_children(SIGKILL);
+                    }
                     break;
                 case SIGHUP:
                     $this->log("Restarting children", GearmanManager::LOG_LEVEL_PROC_INFO);
@@ -788,7 +672,7 @@ class GearmanManager {
     /**
      * Logs data to disk or stdout
      */
-    private function log($message, $level=GearmanManager::LOG_LEVEL_INFO) {
+    protected function log($message, $level=GearmanManager::LOG_LEVEL_INFO) {
 
         static $init = false;
 
@@ -838,7 +722,7 @@ class GearmanManager {
     /**
      * Shows the scripts help info with optional error message
      */
-    private function show_help($msg = "") {
+    protected function show_help($msg = "") {
         if($msg){
             echo "ERROR:\n";
             echo "  ".wordwrap($msg, 72, "\n  ")."\n\n";
@@ -847,25 +731,21 @@ class GearmanManager {
         echo "USAGE:\n";
         echo "  # ".basename(__FILE__)." -h | -c CONFIG [-v] [-l LOG_FILE] [-d] [-v] [-a] [-P PID_FILE]\n\n";
         echo "OPTIONS:\n";
-        echo "  -a           Automatically check for new worker code\n";
-        echo "  -c CONFIG    Worker configuration file\n";
-        echo "  -d           Daemon, detach and run in the background\n";
-        echo "  -D NUMBER    Start NUMBER workers that do all jobs\n";
-        echo "  -H           Shows this help\n";
-        echo "  -l LOG_FILE  Log output to LOG_FILE\n";
-        echo "  -P PID_FILE  File to write process ID out to\n";
-        echo "  -v           Increase verbosity level by one\n";
-        echo "  -w DIR       Directory where workers are located\n";
-        echo "  -x SECONDS   Maximum seconds for a worker to live\n";
+        echo "  -a             Automatically check for new worker code\n";
+        echo "  -c CONFIG      Worker configuration file\n";
+        echo "  -d             Daemon, detach and run in the background\n";
+        echo "  -D NUMBER      Start NUMBER workers that do all jobs\n";
+        echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
+        echo "  -H             Shows this help\n";
+        echo "  -l LOG_FILE    Log output to LOG_FILE\n";
+        echo "  -P PID_FILE    File to write process ID out to\n";
+        echo "  -v             Increase verbosity level by one\n";
+        echo "  -w DIR         Directory where workers are located\n";
+        echo "  -x SECONDS     Maximum seconds for a worker to live\n";
         echo "\n";
         exit();
     }
 
 }
-
-/**
- * Fire up a manager
- */
-$worker = new GearmanManager();
 
 ?>
