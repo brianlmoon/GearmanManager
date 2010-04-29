@@ -7,7 +7,7 @@ PHP Requirements:
 PHP 5.2.? - not sure exact version
 POSIX extension
 Process Control extension
-pecl/gearman
+pecl/gearman or Net_Gearman
 
 Some features.
 
