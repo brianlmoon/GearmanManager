@@ -78,6 +78,11 @@ class GearmanManager {
     protected $log_file_handle;
 
     /**
+     * Flag for logging to syslog
+     */
+    protected $log_syslog = false;
+
+    /**
      * Verbosity level for the running script. Set via -v option
      */
     protected $verbose = 0;
@@ -334,9 +339,13 @@ class GearmanManager {
         }
 
         if(isset($opts["l"])){
-            $this->log_file_handle = @fopen($opts["l"], "a");
-            if(!$this->log_file_handle){
-                $this->show_help("Could not open log file $opts[l]");
+            if($opts["l"] === 'syslog'){
+                $this->log_syslog = true;
+            } else {
+                $this->log_file_handle = @fopen($opts["l"], "a");
+                if(!$this->log_file_handle){
+                    $this->show_help("Could not open log file $opts[l]");
+                }
             }
         }
 
@@ -679,6 +688,11 @@ class GearmanManager {
 
         if($level > $this->verbose) return;
 
+        if ($this->log_syslog) {
+            $this->syslog($message, $level);
+            return;
+        }
+
         if(!$init){
             $init = true;
 
@@ -721,6 +735,27 @@ class GearmanManager {
     }
 
     /**
+     * Logs data to syslog
+     */
+    protected function syslog($message, $level) {
+        switch($level) {
+            case GearmanManager::LOG_LEVEL_INFO;
+            case GearmanManager::LOG_LEVEL_PROC_INFO:
+            case GearmanManager::LOG_LEVEL_WORKER_INFO:
+            default:
+                $priority = LOG_INFO;
+                break;
+            case GearmanManager::LOG_LEVEL_DEBUG:
+                $priority = LOG_DEBUG;
+                break;
+        }
+
+        if (!syslog($priority, $message)) {
+            echo "Unable to write to syslog\n";
+        }
+    }
+
+    /**
      * Shows the scripts help info with optional error message
      */
     protected function show_help($msg = "") {
@@ -738,7 +773,7 @@ class GearmanManager {
         echo "  -D NUMBER      Start NUMBER workers that do all jobs\n";
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
         echo "  -H             Shows this help\n";
-        echo "  -l LOG_FILE    Log output to LOG_FILE\n";
+        echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -v             Increase verbosity level by one\n";
         echo "  -w DIR         Directory where workers are located\n";
