@@ -298,6 +298,7 @@ class GearmanManager {
             if($pid>0){
                 exit();
             }
+            $this->pid = getmypid();
         }
 
         if(isset($opts["P"])){
