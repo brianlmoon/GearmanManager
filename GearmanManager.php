@@ -197,7 +197,7 @@ class GearmanManager {
 
         foreach($worker_files as $file){
             $function = substr(basename($file), 0, -4);
-            if(empty($this->functions[$function])){
+            if(!isset($this->functions[$function])){
                 $this->functions[$function] = array("count"=>1);
             }
         }
