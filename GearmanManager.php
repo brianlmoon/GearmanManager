@@ -59,7 +59,7 @@ class GearmanManager {
     /**
      * Boolean value that determines if the running code is the parent or a child
      */
-    protected $ischild = false;
+    protected $isparent = true;
 
     /**
      * When true, workers will stop look for jobs and the parent process will
@@ -276,7 +276,7 @@ class GearmanManager {
      *
      */
     public function __destruct() {
-        if(!$this->ischild){
+        if($this->isparent){
             if(!empty($this->pid_file) && file_exists($this->pid_file)){
                 unlink($this->pid_file);
             }
@@ -301,6 +301,7 @@ class GearmanManager {
         if(isset($opts["d"])){
             $pid = pcntl_fork();
             if($pid>0){
+                $this->isparent = false;
                 exit();
             }
             $this->pid = getmypid();
@@ -438,6 +439,7 @@ class GearmanManager {
         $pid = pcntl_fork();
         switch($pid) {
             case 0:
+                $this->isparent = false;
                 $this->$method();
                 break;
             case -1:
@@ -560,7 +562,7 @@ class GearmanManager {
 
             case 0:
 
-                $this->ischild = true;
+                $this->isparent = false;
 
                 $this->register_ticks(false);
 
@@ -640,7 +642,7 @@ class GearmanManager {
 
         static $term_count = 0;
 
-        if($this->ischild){
+        if(!$this->isparent){
 
             $this->stop_work = true;
 
