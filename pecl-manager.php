@@ -36,7 +36,7 @@ class GearmanPeclManager extends GearmanManager {
 
         foreach($this->servers as $s){
             $this->log("Adding server $s", GearmanManager::LOG_LEVEL_WORKER_INFO);
-            $thisWorker->addServer($s);
+            $thisWorker->addServers($s);
         }
 
         foreach($worker_list as $w){
