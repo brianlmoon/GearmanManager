@@ -137,10 +137,10 @@ class GearmanPeclManager extends GearmanManager {
 
                 if(is_array($l)){
                     foreach($l as $ln){
-                        $this->log("($handle) $ln", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                        $this->log("($h) $ln", GearmanManager::LOG_LEVEL_WORKER_INFO);
                     }
                 } else {
-                    $this->log("($handle) $l", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                    $this->log("($h) $l", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 }
 
             }
@@ -156,10 +156,10 @@ class GearmanPeclManager extends GearmanManager {
 
         if(is_array($result_log)){
             foreach($result_log as $ln){
-                $this->log("($handle) $ln", GearmanManager::LOG_LEVEL_DEBUG);
+                $this->log("($h) $ln", GearmanManager::LOG_LEVEL_DEBUG);
             }
         } else {
-            $this->log("($handle) $result_log", GearmanManager::LOG_LEVEL_DEBUG);
+            $this->log("($h) $result_log", GearmanManager::LOG_LEVEL_DEBUG);
         }
 
         /**
