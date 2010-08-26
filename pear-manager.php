@@ -12,6 +12,12 @@
 
 declare(ticks = 1);
 
+/**
+ * Uncomment and set to your prefix.
+ */
+//define("NET_GEARMAN_JOB_CLASS_PREFIX", "");
+
+
 require dirname(__FILE__)."/GearmanManager.php";
 
 /**
@@ -37,7 +43,6 @@ class GearmanPearManager extends GearmanManager {
          */
         define('NET_GEARMAN_JOB_PATH', $this->worker_dir);
         require "Net/Gearman/Worker.php";
-
 
         $worker = new Net_Gearman_Worker($this->servers);
 
@@ -127,9 +132,11 @@ class GearmanPearManager extends GearmanManager {
                 }
 
                 if(is_array($l)){
+                    $log_message = "";
                     foreach($l as $ln){
-                        $this->log("($handle) $ln", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                        $log_message.= "($handle) $ln\n";
                     }
+                    $this->log($log_message, GearmanManager::LOG_LEVEL_WORKER_INFO);
                 } else {
                     $this->log("($handle) $l", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 }
@@ -147,9 +154,11 @@ class GearmanPearManager extends GearmanManager {
         }
 
         if(is_array($result_log)){
+            $log_message = "";
             foreach($result_log as $ln){
-                $this->log("($handle) $ln", GearmanManager::LOG_LEVEL_DEBUG);
+                $log_message.="($handle) $ln\n";
             }
+            $this->log($log_message, GearmanManager::LOG_LEVEL_DEBUG);
         } else {
             $this->log("($handle) $result_log", GearmanManager::LOG_LEVEL_DEBUG);
         }
@@ -164,7 +173,7 @@ class GearmanPearManager extends GearmanManager {
         require "Net/Gearman/Job/Common.php";
 
         foreach($worker_files as $file){
-            $class = "Net_Gearman_Job_".substr(basename($file), 0, -4);
+            $class = NET_GEARMAN_JOB_CLASS_PREFIX.substr(basename($file), 0, -4);
             include $file;
             if(!class_exists($class) && !method_exists($class, "run")) {
                 $this->log("Class $class not found in $file or run method not present");
