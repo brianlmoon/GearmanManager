@@ -160,10 +160,6 @@ class GearmanManager {
      */
     public function __construct() {
 
-        if(!class_exists("GearmanWorker")){
-            $this->show_help("GearmanWorker class not found. Please ensure the gearman extenstion is installed");
-        }
-
         if(!function_exists("posix_kill")){
             $this->show_help("The function posix_kill was not found. Please ensure POSIX functions are installed");
         }
@@ -462,6 +458,9 @@ class GearmanManager {
      */
     protected function validate_workers(){
 
+        $parent_pid = $this->pid;
+        $this->pid = getmypid();
+
         $this->log("Helper forked", GearmanManager::LOG_LEVEL_PROC_INFO);
 
         $this->log("Loading workers in ".$this->worker_dir);
@@ -470,7 +469,7 @@ class GearmanManager {
 
         if(empty($worker_files)){
             $this->log("No workers found");
-            posix_kill($this->pid, SIGUSR1);
+            posix_kill($parent_pid, SIGUSR1);
             exit();
         }
 
@@ -479,20 +478,25 @@ class GearmanManager {
         /**
          * Since we got here, all must be ok, send a CONTINUE
          */
-        posix_kill($this->pid, SIGCONT);
+        posix_kill($parent_pid, SIGCONT);
 
         if($this->check_code){
-            $last_check_time = time();
+            $this->log("Running loop to check for new code", self::LOG_LEVEL_DEBUG);
+            $last_check_time = 0;
             while(1) {
+                $max_time = 0;
                 foreach($worker_files as $f){
                     clearstatcache();
                     $mtime = filemtime($f);
-                    if($mtime > $last_check_time){
-                        posix_kill($this->pid, SIGHUP);
+                    $max_time = max($max_time, $mtime);
+                    $this->log("$f - $mtime $last_check_time", self::LOG_LEVEL_CRAZY);
+                    if($last_check_time!=0 && $mtime > $last_check_time){
+                        $this->log("New code found. Sending SIGHUP", self::LOG_LEVEL_PROC_INFO);
+                        posix_kill($parent_pid, SIGHUP);
                         break;
                     }
                 }
-                $last_check_time = time();
+                $last_check_time = $max_time;
                 sleep(5);
             }
         } else {
@@ -722,6 +726,9 @@ class GearmanManager {
             case GearmanManager::LOG_LEVEL_DEBUG:
                 $label = "DEBUG ";
                 break;
+            case GearmanManager::LOG_LEVEL_CRAZY:
+                $label = "CRAZY ";
+                break;
         }
 
 
@@ -729,9 +736,11 @@ class GearmanManager {
 
         if($this->log_file_handle){
             $ds = date("Y-m-d H:i:s");
-            fwrite($this->log_file_handle, "[$ds] $log_pid $label $message\n");
+            $prefix = "[$ds] $log_pid $label";
+            fwrite($this->log_file_handle, $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n");
         } else {
-            echo "$log_pid $label $message\n";
+            $prefix = "$log_pid $label";
+            echo $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n";
         }
 
     }
