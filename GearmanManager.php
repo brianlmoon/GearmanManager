@@ -35,8 +35,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 declare(ticks = 1);
 
-error_reporting(E_ALL | E_STRICT);
-
 /**
  * Class that handles all the process management
  */
@@ -113,6 +111,11 @@ class GearmanManager {
     protected $helper_pid = 0;
 
     /**
+     * Restart worker after each job
+     */
+    protected $restart_each = false;
+
+    /**
      * If true, the worker code directory is checked for updates and workers
      * are restarted automatically.
      */
@@ -133,6 +136,11 @@ class GearmanManager {
      * Directory where worker functions are found
      */
     protected $worker_dir = "";
+
+    /**
+     * Worker functions to ignore
+     */
+    protected $ignore_workers = array();
 
     /**
      * Number of workers that do all jobs
@@ -285,7 +293,7 @@ class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:");
+        $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:i:u:r");
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -303,6 +311,10 @@ class GearmanManager {
             $this->pid = getmypid();
         }
 
+        if (isset($opts['r'])) {
+            $this->restart_each = true;
+        }
+
         if(isset($opts["P"])){
             $fp = @fopen($opts["P"], "w");
             if($fp){
@@ -312,6 +324,18 @@ class GearmanManager {
                 $this->show_help("Unable to write PID to $opts[P]");
             }
             $this->pid_file = $opts["P"];
+        }
+
+        if(isset($opts['u'])) {
+            $user = posix_getpwnam($opts['u']);
+            if (!$user || !isset($user['uid'])) {
+                $this->show_help("User ({$opts['u']}) not found.");
+            }
+
+            posix_setuid($user['uid']);
+            if (posix_geteuid() != $user['uid']) {
+                $this->show_help("Unable to change user to {$opts['u']} (UID: {$user['uid']}).");
+            }
         }
 
         if(isset($opts["v"])){
@@ -358,6 +382,14 @@ class GearmanManager {
             $this->worker_dir = $opts["w"];
         } else {
             $this->worker_dir = "./workers";
+        }
+
+        if (isset($opts["i"])) {
+            if (!is_array($opts["i"])) {
+                $this->ignore_workers = array($opts["i"]);
+            } else {
+                $this->ignore_workers = $opts["i"];
+            }
         }
 
         if(!file_exists($this->worker_dir)){
@@ -559,6 +591,10 @@ class GearmanManager {
     }
 
     protected function start_worker($worker="all") {
+
+        if (in_array($worker, $this->ignore_workers)) {
+            return;
+        }
 
         $pid = pcntl_fork();
 
@@ -784,8 +820,11 @@ class GearmanManager {
         echo "  -D NUMBER      Start NUMBER workers that do all jobs\n";
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
         echo "  -H             Shows this help\n";
+        echo "  -i WORKER      Ignore WORKER\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
+        echo "  -r             Restart workers after each job is complete\n";
+        echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
         echo "  -w DIR         Directory where workers are located\n";
         echo "  -x SECONDS     Maximum seconds for a worker to live\n";

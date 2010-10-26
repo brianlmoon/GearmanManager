@@ -40,8 +40,12 @@ class GearmanPeclManager extends GearmanManager {
         }
 
         foreach($worker_list as $w){
-            $this->log("Adding job $w", GearmanManager::LOG_LEVEL_WORKER_INFO);
-            $thisWorker->addFunction($w, array($this, "do_job"), $this);
+            if (!in_array($w, $this->ignore_workers)) {
+                $this->log("Adding job $w", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                $thisWorker->addFunction($w, array($this, "do_job"), $this);
+            } else {
+                $this->log("Skipping job $w", GearmanManager::LOG_LEVEL_INFO);
+            }
         }
 
         $start = time();
@@ -70,7 +74,6 @@ class GearmanPeclManager extends GearmanManager {
                 $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $this->stop_work = true;
             }
-
         }
 
         $thisWorker->unregisterAll();
@@ -96,12 +99,13 @@ class GearmanPeclManager extends GearmanManager {
 
         if(empty($objects[$f]) && !function_exists($f) && !class_exists($f)){
 
-            @include $this->worker_dir."/$f.php";
+            include $this->worker_dir."/$f.php";
 
             if(class_exists($f) && method_exists($f, "run")){
 
                 $this->log("Creating a $f object", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $objects[$f] = new $f();
+                $this->log("Created a $f object", GearmanManager::LOG_LEVEL_WORKER_INFO);
 
             } elseif(!function_exists($f)) {
 
@@ -169,6 +173,13 @@ class GearmanPeclManager extends GearmanManager {
         $type = gettype($result);
         settype($result, $type);
 
+        /**
+         * Check if we should restart the worker after each job is complete
+         */
+        if ($this->restart_each) {
+            $this->stop_work = true;
+        }
+
         return $result;
 
     }
@@ -180,7 +191,10 @@ class GearmanPeclManager extends GearmanManager {
 
         foreach($worker_files as $file){
             $function = substr(basename($file), 0, -4);
-            @include $file;
+            if (in_array($function, $this->ignore_workers)) {
+                continue;
+            }
+            include $file;
             if(!function_exists($function) &&
                (!class_exists($function) || !method_exists($function, "run"))){
                 $this->log("Function $function not found in $file");
