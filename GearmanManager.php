@@ -308,6 +308,7 @@ class GearmanManager {
                 $this->isparent = false;
                 exit();
             }
+            posix_setsid();
             $this->pid = getmypid();
         }
 
