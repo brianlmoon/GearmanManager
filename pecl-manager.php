@@ -96,26 +96,27 @@ class GearmanPeclManager extends GearmanManager {
         $h = $job->handle();
 
         $f = $job->functionName();
+        $q = $this->prefix . $f;
 
-        if(empty($objects[$f]) && !function_exists($f) && !class_exists($f)){
+        if(empty($objects[$q]) && !function_exists($q) && !class_exists($q)){
 
             include $this->worker_dir."/$f.php";
 
-            if(class_exists($f) && method_exists($f, "run")){
+            if(class_exists($q) && method_exists($q, "run")){
 
-                $this->log("Creating a $f object", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                $objects[$f] = new $f();
-                $this->log("Created a $f object", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                $this->log("Creating a $q object", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                $objects[$q] = new $q();
+                $this->log("Created a $q object", GearmanManager::LOG_LEVEL_WORKER_INFO);
 
-            } elseif(!function_exists($f)) {
+            } elseif(!function_exists($q)) {
 
-                $this->log("Function $f not found");
+                $this->log("Function $q not found");
                 return;
             }
 
         }
 
-        $this->log("($h) Starting Job: $f", GearmanManager::LOG_LEVEL_WORKER_INFO);
+        $this->log("($h) Starting Job: $f ($q)", GearmanManager::LOG_LEVEL_WORKER_INFO);
 
         $this->log("($h) Workload: $w", GearmanManager::LOG_LEVEL_DEBUG);
 
@@ -124,10 +125,10 @@ class GearmanPeclManager extends GearmanManager {
         /**
          * Run the real function here
          */
-        if(isset($objects[$f])){
-            $result = $objects[$f]->run($job, $log);
+        if(isset($objects[$q])){
+            $result = $objects[$q]->run($job, $log);
         } else {
-            $result = $f($job, $log);
+            $result = $q($job, $log);
         }
 
         if(!empty($log)){

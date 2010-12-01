@@ -106,6 +106,11 @@ class GearmanManager {
     protected $pid_file = "";
 
     /**
+     * Class/Function Prefix
+     */
+    protected $prefix = "";
+
+    /**
      * PID of helper child
      */
     protected $helper_pid = 0;
@@ -293,7 +298,7 @@ class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:i:u:r");
+        $opts = getopt("ac:dD:h:Hi:l:o:P:p:ru:v::w:x:");
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -308,6 +313,7 @@ class GearmanManager {
                 $this->isparent = false;
                 exit();
             }
+            posix_setsid();
             $this->pid = getmypid();
         }
 
@@ -413,6 +419,10 @@ class GearmanManager {
             }
         } else {
             $this->servers = array("127.0.0.1");
+        }
+
+        if(isset($opts["p"])){
+            $this->prefix = $opts["p"];
         }
 
         /**
@@ -822,6 +832,7 @@ class GearmanManager {
         echo "  -H             Shows this help\n";
         echo "  -i WORKER      Ignore WORKER\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
+        echo "  -p PREFIX      Prefix function/class name with PREFIX\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -r             Restart workers after each job is complete\n";
         echo "  -u USERNAME    Run wokers as USERNAME\n";
