@@ -346,8 +346,26 @@ class GearmanManager {
             }
         }
 
-        if(isset($opts["c"]) && !file_exists($opts["c"])){
-            $this->show_help("Config file $opts[c] not found.");
+        if(isset($opts["c"])){
+            // handle single or multiple config opts the same way
+            $raw_config = is_array($opts["c"]) ? $opts["c"] : array($opts["c"]);
+            $opts["c"] = array();
+
+            foreach($raw_config as $c_opt){
+                // if dir, get all *.php or *.ini files it contains
+                if(is_dir($c_opt)) {
+                    $files = glob("$c_opt/*.{ini,php}", GLOB_BRACE);
+                    if(is_array($files)){
+                        $opts["c"] = array_merge($opts["c"], $files);
+                    }
+                // otherwise assume a single file
+                } elseif(file_exists($c_opt)) {
+                    $opts["c"][] = $c_opt;
+                } else {
+                    $this->show_help("Config file $c_opt not found.");
+                }
+            }
+            unset($raw_config);
         }
 
         if(isset($opts["a"])){
@@ -394,33 +412,33 @@ class GearmanManager {
 
 
     /**
-     * Parses the config file
+     * Parses any number of config files
      *
-     * @param   string    $file     The config file. Just pass so we don't have
+     * @param   array    $files     The config files. Just pass so we don't have
      *                              to keep it around in a var
      */
-    protected function parse_config($file) {
+    protected function parse_config($files) {
+        foreach($files as $file){
+            $this->log("Loading configuration from $file");
 
-        $this->log("Loading configuration from $file");
+            if(substr($file, -4) == ".php"){
 
-        if(substr($file, -4) == ".php"){
+                require $file;
 
-            require $file;
+            } elseif(substr($file, -4) == ".ini"){
 
-        } elseif(substr($file, -4) == ".ini"){
+                $gearman_config = parse_ini_file($file, true);
 
-            $gearman_config = parse_ini_file($file, true);
+            }
 
+            if(empty($gearman_config)){
+                $this->show_help("No configuration found in $file");
+            }
+
+            foreach($gearman_config as $function=>$data){
+                $this->functions[$function] = $data;
+            }
         }
-
-        if(empty($gearman_config)){
-            $this->show_help("No configuration found in $file");
-        }
-
-        foreach($gearman_config as $function=>$data){
-            $this->functions[$function] = $data;
-        }
-
     }
 
     /**
