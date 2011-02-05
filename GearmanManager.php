@@ -118,6 +118,11 @@ class GearmanManager {
     protected $helper_pid = 0;
 
     /**
+     * The user to run as
+     */
+    protected $user = null;
+
+    /**
      * If true, the worker code directory is checked for updates and workers
      * are restarted automatically.
      */
@@ -330,6 +335,12 @@ class GearmanManager {
             $this->config['host'] = $opts['h'];
         }
 
+        if(isset($this->config["user"])){
+            $this->user = $this->config["user"];
+        } elseif(isset($opts['u'])){
+            $this->user = $opts['u'];
+        }
+
         /**
          * If we want to daemonize, fork here and exit
          */
@@ -374,17 +385,17 @@ class GearmanManager {
             }
         }
 
-        if(isset($opts['u'])) {
-            $user = posix_getpwnam($opts['u']);
+        if($this->user) {
+            $user = posix_getpwnam($this->user);
             if (!$user || !isset($user['uid'])) {
-                $this->show_help("User ({$opts['u']}) not found.");
+                $this->show_help("User ({$this->user}) not found.");
             }
 
             posix_setuid($user['uid']);
             if (posix_geteuid() != $user['uid']) {
-                $this->show_help("Unable to change user to {$opts['u']} (UID: {$user['uid']}).");
+                $this->show_help("Unable to change user to {$this->user} (UID: {$user['uid']}).");
             }
-            $this->log("User set to {$opts['u']}", GearmanManager::LOG_LEVEL_PROC_INFO);
+            $this->log("User set to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
         }
 
         if(!empty($this->config['log_file'])){
