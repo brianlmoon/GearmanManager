@@ -219,36 +219,7 @@ class GearmanManager {
          */
         while(!$this->stop_work || count($this->children)) {
 
-            $status = null;
-
-            /**
-             * Check for exited children
-             */
-            $exited = pcntl_wait( $status, WNOHANG );
-
-            /**
-             * We run other children, make sure this is a worker
-             */
-            if(isset($this->children[$exited])){
-                /**
-                 * If they have exited, remove them from the children array
-                 * If we are not stopping work, start another in its place
-                 */
-                if($exited) {
-                    $worker = $this->children[$exited];
-                    unset($this->children[$exited]);
-                    $this->log("Child $exited exited ($worker)", GearmanManager::LOG_LEVEL_PROC_INFO);
-                    if(!$this->stop_work){
-                        $this->start_worker($worker);
-                    }
-                }
-            }
-
-
-            if($this->stop_work && time() - $this->stop_time > 60){
-                $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
-                $this->stop_children(SIGKILL);
-            }
+            $this->process_loop();
 
             /**
              * php will eat up your cpu if you don't have this
@@ -265,6 +236,41 @@ class GearmanManager {
         }
 
         $this->log("Exiting");
+
+    }
+
+    protected function process_loop() {
+
+        $status = null;
+
+        /**
+         * Check for exited children
+         */
+        $exited = pcntl_wait( $status, WNOHANG );
+
+        /**
+         * We run other children, make sure this is a worker
+         */
+        if(isset($this->children[$exited])){
+            /**
+             * If they have exited, remove them from the children array
+             * If we are not stopping work, start another in its place
+             */
+            if($exited) {
+                $worker = $this->children[$exited];
+                unset($this->children[$exited]);
+                $this->log("Child $exited exited ($worker)", GearmanManager::LOG_LEVEL_PROC_INFO);
+                if(!$this->stop_work){
+                    $this->start_worker($worker);
+                }
+            }
+        }
+
+
+        if($this->stop_work && time() - $this->stop_time > 60){
+            $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
+            $this->stop_children(SIGKILL);
+        }
 
     }
 
