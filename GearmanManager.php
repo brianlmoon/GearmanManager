@@ -282,7 +282,7 @@ class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:Z");
+        $opts = getopt("ac:dD:h:Hl:o:P:u:v::w:x:Z");
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -372,6 +372,19 @@ class GearmanManager {
                     $this->verbose = GearmanManager::LOG_LEVEL_CRAZY;
                     break;
             }
+        }
+
+        if(isset($opts['u'])) {
+            $user = posix_getpwnam($opts['u']);
+            if (!$user || !isset($user['uid'])) {
+                $this->show_help("User ({$opts['u']}) not found.");
+            }
+
+            posix_setuid($user['uid']);
+            if (posix_geteuid() != $user['uid']) {
+                $this->show_help("Unable to change user to {$opts['u']} (UID: {$user['uid']}).");
+            }
+            $this->log("User set to {$opts['u']}", GearmanManager::LOG_LEVEL_PROC_INFO);
         }
 
         if(!empty($this->config['log_file'])){
@@ -907,6 +920,7 @@ class GearmanManager {
         echo "  -H             Shows this help\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
+        echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
         echo "  -w DIR         Directory where workers are located, defaults to ./workers\n";
         echo "  -x SECONDS     Maximum seconds for a worker to live\n";
