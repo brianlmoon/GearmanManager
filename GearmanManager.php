@@ -357,6 +357,7 @@ class GearmanManager {
                 exit();
             }
             $this->pid = getmypid();
+            posix_setsid();
         }
 
         if(!empty($this->config['pid_file'])){
