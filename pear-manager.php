@@ -17,7 +17,6 @@ declare(ticks = 1);
  */
 //define("NET_GEARMAN_JOB_CLASS_PREFIX", "");
 
-
 require dirname(__FILE__)."/GearmanManager.php";
 
 /**
@@ -42,6 +41,15 @@ class GearmanPearManager extends GearmanManager {
          * Require PEAR Net_Gearman libs
          */
         define('NET_GEARMAN_JOB_PATH', $this->worker_dir);
+
+        if(!class_exists("Net_Gearman_Job_Common")){
+            require "Net/Gearman/Job/Common.php";
+        }
+
+        if(!class_exists("Net_Gearman_Job")){
+            require "Net/Gearman/Job.php";
+        }
+
         require "Net/Gearman/Worker.php";
 
         $worker = new Net_Gearman_Worker($this->servers);
@@ -108,7 +116,9 @@ class GearmanPearManager extends GearmanManager {
      */
     public function job_fail($handle, $job, $result) {
 
-        $this->log("($handle) Failed Job: $job", GearmanManager::LOG_LEVEL_WORKER_INFO);
+        $message = "($handle) Failed Job: $job: ".$result->getMessage();
+
+        $this->log($message, GearmanManager::LOG_LEVEL_WORKER_INFO);
 
         $this->log_result($handle, $result);
     }
@@ -168,19 +178,34 @@ class GearmanPearManager extends GearmanManager {
     /**
      * Validates the PECL compatible worker files/functions
      */
-    protected function validate_lib_workers($worker_files) {
+    protected function validate_lib_workers() {
 
-        require "Net/Gearman/Job/Common.php";
+        /**
+         * Yes, we include these twice because this function is called
+         * by a different process than the other location where these
+         * are included.
+         */
+        if(!class_exists("Net_Gearman_Job_Common")){
+            require "Net/Gearman/Job/Common.php";
+        }
 
-        foreach($worker_files as $file){
-            $class = NET_GEARMAN_JOB_CLASS_PREFIX.substr(basename($file), 0, -4);
-            include $file;
+        if(!class_exists("Net_Gearman_Job")){
+            require "Net/Gearman/Job.php";
+        }
+
+        /**
+         * Validate functions
+         */
+        foreach($this->functions as $name => $func){
+            $class = NET_GEARMAN_JOB_CLASS_PREFIX.$name;
+            include $func['path'];
             if(!class_exists($class) && !method_exists($class, "run")) {
-                $this->log("Class $class not found in $file or run method not present");
+                $this->log("Class $class not found in {$func['path']} or run method not present");
                 posix_kill($this->pid, SIGUSR2);
                 exit();
             }
         }
+
     }
 
 }

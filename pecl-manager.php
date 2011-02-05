@@ -176,14 +176,13 @@ class GearmanPeclManager extends GearmanManager {
     /**
      * Validates the PECL compatible worker files/functions
      */
-    protected function validate_lib_workers($worker_files) {
+    protected function validate_lib_workers() {
 
-        foreach($worker_files as $file){
-            $function = substr(basename($file), 0, -4);
-            @include $file;
-            if(!function_exists($function) &&
-               (!class_exists($function) || !method_exists($function, "run"))){
-                $this->log("Function $function not found in $file");
+        foreach($this->functions as $func => $props){
+            @include $props["path"];
+            if(!function_exists($func) &&
+               (!class_exists($func) || !method_exists($func, "run"))){
+                $this->log("Function $func not found in ".$props["path"]);
                 posix_kill($this->pid, SIGUSR2);
                 exit();
             }

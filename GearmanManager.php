@@ -52,6 +52,11 @@ class GearmanManager {
     const LOG_LEVEL_CRAZY = 5;
 
     /**
+     * Default config section name
+     */
+    const DEFAULT_CONFIG = "GearmanManager";
+
+    /**
      * Holds the worker configuration
      */
     protected $config = array();
@@ -183,21 +188,13 @@ class GearmanManager {
         /**
          * Load up the workers
          */
-        $worker_files = glob($this->worker_dir."/*.php");
+        $this->load_workers();
 
-        if(empty($worker_files)){
+        if(empty($this->functions)){
             $this->log("No workers found");
             posix_kill($this->pid, SIGUSR1);
             exit();
         }
-
-        foreach($worker_files as $file){
-            $function = substr(basename($file), 0, -4);
-            if(!isset($this->functions[$function])){
-                $this->functions[$function] = array("count"=>1);
-            }
-        }
-
 
         /**
          * Validate workers in the helper process
@@ -285,10 +282,52 @@ class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:");
+        $opts = getopt("ac:dD:h:Hl:o:P:v::w:x:Z");
 
         if(isset($opts["H"])){
             $this->show_help();
+        }
+
+        if(isset($opts["c"]) && !file_exists($opts["c"])){
+            $this->show_help("Config file $opts[c] not found.");
+        }
+
+        /**
+         * parse the config file
+         */
+        if(isset($opts["c"])){
+            $this->parse_config($opts["c"]);
+        }
+
+        /**
+         * command line opts always override config file
+         */
+        if (isset($opts['P'])) {
+            $this->config['pid_file'] = $opts['P'];
+        }
+
+        if (isset($opts['l'])) {
+            $this->config['log_file'] = $opts['l'];
+        }
+
+        if (isset($opts['a'])) {
+            $this->config['auto_update'] = 1;
+        }
+
+        if (isset($opts['w'])) {
+            $this->config['worker_dir'] = $opts['w'];
+        }
+
+        if (isset($opts['x'])) {
+            $this->config['max_worker_lifetime'] = (int)$opts['x'];
+        }
+
+        if (isset($opts['D'])) {
+            $this->config['count'] = (int)$opts['D'];
+        }
+
+        if (isset($opts['h'])) {
+            $this->config['host'] = $opts['h'];
         }
 
         /**
@@ -303,15 +342,15 @@ class GearmanManager {
             $this->pid = getmypid();
         }
 
-        if(isset($opts["P"])){
-            $fp = @fopen($opts["P"], "w");
+        if(!empty($this->config['pid_file'])){
+            $fp = @fopen($this->config['pid_file'], "w");
             if($fp){
                 fwrite($fp, $this->pid);
                 fclose($fp);
             } else {
-                $this->show_help("Unable to write PID to $opts[P]");
+                $this->show_help("Unable to write PID to {$this->config['pid_file']}");
             }
-            $this->pid_file = $opts["P"];
+            $this->pid_file = $this->config['pid_file'];
         }
 
         if(isset($opts["v"])){
@@ -328,34 +367,30 @@ class GearmanManager {
                 case "vvv":
                     $this->verbose = GearmanManager::LOG_LEVEL_DEBUG;
                     break;
-                default:
                 case "vvvv":
+                default:
                     $this->verbose = GearmanManager::LOG_LEVEL_CRAZY;
                     break;
             }
         }
 
-        if(isset($opts["l"])){
-            if($opts["l"] === 'syslog'){
+        if(!empty($this->config['log_file'])){
+            if($this->config['log_file'] === 'syslog'){
                 $this->log_syslog = true;
             } else {
-                $this->log_file_handle = @fopen($opts["l"], "a");
+                $this->log_file_handle = @fopen($this->config['log_file'], "a");
                 if(!$this->log_file_handle){
-                    $this->show_help("Could not open log file $opts[l]");
+                    $this->show_help("Could not open log file {$this->config['log_file']}");
                 }
             }
         }
 
-        if(isset($opts["c"]) && !file_exists($opts["c"])){
-            $this->show_help("Config file $opts[c] not found.");
-        }
-
-        if(isset($opts["a"])){
+        if(!empty($this->config['auto_update'])){
             $this->check_code = true;
         }
 
-        if(isset($opts["w"])){
-            $this->worker_dir = $opts["w"];
+        if(!empty($this->config['worker_dir'])){
+            $this->worker_dir = $this->config['worker_dir'];
         } else {
             $this->worker_dir = "./workers";
         }
@@ -365,29 +400,42 @@ class GearmanManager {
         }
 
 
-        if(isset($opts["x"])){
-            $this->max_run_time = (int)$opts["x"];
+        if(!empty($this->config['max_worker_lifetime'])){
+            $this->max_run_time = (int)$this->config['max_worker_lifetime'];
         }
 
-        if(isset($opts["D"])){
-            $this->do_all_count = (int)$opts["D"];
+        if(!empty($this->config['count'])){
+            $this->do_all_count = (int)$this->config['count'];
         }
 
-        if(isset($opts["h"])){
-            if(!is_array($opts["h"])){
-                $this->servers = array($opts["h"]);
+        if(!empty($this->config['host'])){
+            if(!is_array($this->config['host'])){
+                $this->servers = explode(",", $this->config['host']);
             } else {
-                $this->servers = $opts["h"];
+                $this->servers = $this->config['host'];
             }
         } else {
             $this->servers = array("127.0.0.1");
         }
 
+        if (!empty($this->config['include']) && $this->config['include'] != "*") {
+            $this->config['include'] = explode(",", $this->config['include']);
+        } else {
+            $this->config['include'] = array();
+        }
+
+        if (!empty($this->config['exclude'])) {
+            $this->config['exclude'] = explode(",", $this->config['exclude']);
+        } else {
+            $this->config['exclude'] = array();
+        }
+
         /**
-         * parse the config file
+         * Debug option to dump the config and exit
          */
-        if(isset($opts["c"])){
-            $this->parse_config($opts["c"]);
+        if(isset($opts["Z"])){
+            print_r($this->config);
+            exit();
         }
 
     }
@@ -417,8 +465,77 @@ class GearmanManager {
             $this->show_help("No configuration found in $file");
         }
 
+        if (isset($gearman_config[self::DEFAULT_CONFIG])) {
+            $this->config = $gearman_config[self::DEFAULT_CONFIG];
+            $this->config['functions'] = array();
+        }
+
         foreach($gearman_config as $function=>$data){
-            $this->functions[$function] = $data;
+
+            if (strcasecmp($function, self::DEFAULT_CONFIG) != 0) {
+                $this->config['functions'][$function] = $data;
+            }
+
+        }
+
+    }
+
+    /**
+     * Helper function to load and filter worker files
+     *
+     * return @void
+     */
+    protected function load_workers() {
+
+        $this->functions = array();
+
+        $worker_files = glob($this->worker_dir."/*.php");
+
+        if (!empty($worker_files)) {
+
+            foreach($worker_files as $file){
+
+                $function = substr(basename($file), 0, -4);
+
+                /**
+                 * include workers
+                 */
+                if (!empty($this->config['include'])) {
+                    if (!in_array($function, $this->config['include'])) {
+                        continue;
+                    }
+                }
+
+                /**
+                 * exclude workers
+                 */
+                if (in_array($function, $this->config['exclude'])) {
+                    continue;
+                }
+
+                if(!isset($this->functions[$function])){
+                    $this->functions[$function] = array();
+                }
+
+                $min_count = max($this->do_all_count, 1);
+                if(!empty($this->config['functions'][$function]['count'])){
+                    $min_count = max($this->config['functions'][$function]['count'], $this->do_all_count);
+                }
+
+                if(!empty($this->config['functions'][$function]['dedicated_count'])){
+                    $ded_count = $this->do_all_count + $this->config['functions'][$function]['dedicated_count'];
+                } elseif(!empty($this->config["dedicated_count"])){
+                    $ded_count = $this->do_all_count + $this->config["dedicated_count"];
+                } else {
+                    $ded_count = $min_count;
+                }
+
+                $this->functions[$function]["count"] = max($min_count, $ded_count);
+
+                $this->functions[$function]['path'] = $file;
+
+            }
+
         }
 
     }
@@ -465,15 +582,15 @@ class GearmanManager {
 
         $this->log("Loading workers in ".$this->worker_dir);
 
-        $worker_files = glob($this->worker_dir."/*.php");
+        $this->load_workers();
 
-        if(empty($worker_files)){
+        if(empty($this->functions)){
             $this->log("No workers found");
             posix_kill($parent_pid, SIGUSR1);
             exit();
         }
 
-        $this->validate_lib_workers($worker_files);
+        $this->validate_lib_workers();
 
         /**
          * Since we got here, all must be ok, send a CONTINUE
@@ -485,11 +602,11 @@ class GearmanManager {
             $last_check_time = 0;
             while(1) {
                 $max_time = 0;
-                foreach($worker_files as $f){
+                foreach($this->functions as $name => $func){
                     clearstatcache();
-                    $mtime = filemtime($f);
+                    $mtime = filemtime($func['path']);
                     $max_time = max($max_time, $mtime);
-                    $this->log("$f - $mtime $last_check_time", self::LOG_LEVEL_CRAZY);
+                    $this->log("{$func['path']} - $mtime $last_check_time", self::LOG_LEVEL_CRAZY);
                     if($last_check_time!=0 && $mtime > $last_check_time){
                         $this->log("New code found. Sending SIGHUP", self::LOG_LEVEL_PROC_INFO);
                         posix_kill($parent_pid, SIGHUP);
@@ -535,6 +652,10 @@ class GearmanManager {
          */
         foreach($this->functions as $worker=>$config) {
 
+            /**
+             * If we don't have do_all workers, this won't be set, so we need
+             * to init it here
+             */
             if(empty($function_count[$worker])){
                 $function_count[$worker] = 0;
             }
@@ -787,8 +908,9 @@ class GearmanManager {
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -v             Increase verbosity level by one\n";
-        echo "  -w DIR         Directory where workers are located\n";
+        echo "  -w DIR         Directory where workers are located, defaults to ./workers\n";
         echo "  -x SECONDS     Maximum seconds for a worker to live\n";
+        echo "  -Z             Parse the command line and config file then dump it to the screen and exit.\n";
         echo "\n";
         exit();
     }
