@@ -20,16 +20,16 @@ PIDFILE=/var/run/gearman-manager.pid
 LOGFILE=/var/log/gearman-manager.log
 CONFIGDIR=/etc/gearman-manager
 GEARMANUSER="gearmand"
-PARAMS="-a -c ${CONFIGDIR}/config.ini -w ${CONFIGDIR}/workers"
+PARAMS="-c ${CONFIGDIR}/config.ini"
 
 RETVAL=0
 
 start() {
         echo -n $"Starting gearman-manager: "
-        # TODO: implement GearmanManager having a -u to change user for child procs
         daemon --pidfile=$PIDFILE $DAEMON \
             -P $PIDFILE \
             -l $LOGFILE \
+            -u $GEARMANUSER \
             -d \
             $PARAMS
         RETVAL=$?

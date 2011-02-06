@@ -17,7 +17,7 @@ PIDFILE=/var/run/gearman-manager.pid
 LOGFILE=/var/log/gearman-manager.log
 CONFIGDIR=/etc/gearman-manager
 GEARMANUSER="gearman"
-PARAMS="-a -c ${CONFIGDIR}/config.ini -w ${CONFIGDIR}/workers"
+PARAMS="-c ${CONFIGDIR}/config.ini"
 
 test -x ${DAEMON} || exit 0
 
@@ -26,13 +26,13 @@ test -x ${DAEMON} || exit 0
 start()
 {
   log_daemon_msg "Starting Gearman Manager"
-  # TODO: instead of start-stop-daemon's --chuid, implement GearmanManager having a -u
   if start-stop-daemon \
     --start \
     --startas $DAEMON \
     --pidfile $PIDFILE \
     -- -P $PIDFILE \
        -l $LOGFILE \
+       -u $GEARMANUSER \
        -d \
        $PARAMS 
   then
