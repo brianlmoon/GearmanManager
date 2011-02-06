@@ -426,10 +426,12 @@ class GearmanManager {
             $this->worker_dir = "./workers";
         }
 
-        if(!file_exists($this->worker_dir)){
-            $this->show_help("Worker dir ".$this->worker_dir." not found");
+        $dirs = explode(",", $this->worker_dir);
+        foreach($dirs as $dir){
+            if(!file_exists($dir)){
+                $this->show_help("Worker dir ".$dir." not found");
+            }
         }
-
 
         if(!empty($this->config['max_worker_lifetime'])){
             $this->max_run_time = (int)$this->config['max_worker_lifetime'];
@@ -520,55 +522,60 @@ class GearmanManager {
 
         $this->functions = array();
 
-        $worker_files = glob($this->worker_dir."/*.php");
+        $dirs = explode(",", $this->worker_dir);
 
-        if (!empty($worker_files)) {
+        foreach($dirs as $dir){
 
-            foreach($worker_files as $file){
+            $this->log("Loading workers in ".$dir);
 
-                $function = substr(basename($file), 0, -4);
+            $worker_files = glob($dir."/*.php");
 
-                /**
-                 * include workers
-                 */
-                if (!empty($this->config['include'])) {
-                    if (!in_array($function, $this->config['include'])) {
+            if (!empty($worker_files)) {
+
+                foreach($worker_files as $file){
+
+                    $function = substr(basename($file), 0, -4);
+
+                    /**
+                     * include workers
+                     */
+                    if (!empty($this->config['include'])) {
+                        if (!in_array($function, $this->config['include'])) {
+                            continue;
+                        }
+                    }
+
+                    /**
+                     * exclude workers
+                     */
+                    if (in_array($function, $this->config['exclude'])) {
                         continue;
                     }
+
+                    if(!isset($this->functions[$function])){
+                        $this->functions[$function] = array();
+                    }
+
+                    $min_count = max($this->do_all_count, 1);
+                    if(!empty($this->config['functions'][$function]['count'])){
+                        $min_count = max($this->config['functions'][$function]['count'], $this->do_all_count);
+                    }
+
+                    if(!empty($this->config['functions'][$function]['dedicated_count'])){
+                        $ded_count = $this->do_all_count + $this->config['functions'][$function]['dedicated_count'];
+                    } elseif(!empty($this->config["dedicated_count"])){
+                        $ded_count = $this->do_all_count + $this->config["dedicated_count"];
+                    } else {
+                        $ded_count = $min_count;
+                    }
+
+                    $this->functions[$function]["count"] = max($min_count, $ded_count);
+
+                    $this->functions[$function]['path'] = $file;
+
                 }
-
-                /**
-                 * exclude workers
-                 */
-                if (in_array($function, $this->config['exclude'])) {
-                    continue;
-                }
-
-                if(!isset($this->functions[$function])){
-                    $this->functions[$function] = array();
-                }
-
-                $min_count = max($this->do_all_count, 1);
-                if(!empty($this->config['functions'][$function]['count'])){
-                    $min_count = max($this->config['functions'][$function]['count'], $this->do_all_count);
-                }
-
-                if(!empty($this->config['functions'][$function]['dedicated_count'])){
-                    $ded_count = $this->do_all_count + $this->config['functions'][$function]['dedicated_count'];
-                } elseif(!empty($this->config["dedicated_count"])){
-                    $ded_count = $this->do_all_count + $this->config["dedicated_count"];
-                } else {
-                    $ded_count = $min_count;
-                }
-
-                $this->functions[$function]["count"] = max($min_count, $ded_count);
-
-                $this->functions[$function]['path'] = $file;
-
             }
-
         }
-
     }
 
     /**
@@ -610,8 +617,6 @@ class GearmanManager {
         $this->pid = getmypid();
 
         $this->log("Helper forked", GearmanManager::LOG_LEVEL_PROC_INFO);
-
-        $this->log("Loading workers in ".$this->worker_dir);
 
         $this->load_workers();
 
@@ -940,7 +945,7 @@ class GearmanManager {
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
-        echo "  -w DIR         Directory where workers are located, defaults to ./workers\n";
+        echo "  -w DIR         Directory where workers are located, defaults to ./workers. If you are using PECL, you can provide multiple directories separated by a comma.\n";
         echo "  -x SECONDS     Maximum seconds for a worker to live\n";
         echo "  -Z             Parse the command line and config file then dump it to the screen and exit.\n";
         echo "\n";

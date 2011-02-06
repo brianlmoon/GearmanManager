@@ -96,7 +96,12 @@ class GearmanPeclManager extends GearmanManager {
 
         if(empty($objects[$f]) && !function_exists($f) && !class_exists($f)){
 
-            @include $this->worker_dir."/$f.php";
+            if(!isset($this->functions[$f])){
+                $this->log("Function $f is not a registered job name");
+                return;
+            }
+
+            @include $this->functions[$f]["path"];
 
             if(class_exists($f) && method_exists($f, "run")){
 
