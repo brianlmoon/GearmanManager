@@ -282,7 +282,9 @@ class GearmanManager {
     public function __destruct() {
         if($this->isparent){
             if(!empty($this->pid_file) && file_exists($this->pid_file)){
-                unlink($this->pid_file);
+                if(!unlink($this->pid_file)) {
+                    $this->log("Could not delete PID file", GearmanManager::LOG_LEVEL_PROC_INFO);
+                }
             }
         }
     }
@@ -371,6 +373,17 @@ class GearmanManager {
             $this->pid_file = $this->config['pid_file'];
         }
 
+        if(!empty($this->config['log_file'])){
+            if($this->config['log_file'] === 'syslog'){
+                $this->log_syslog = true;
+            } else {
+                $this->log_file_handle = @fopen($this->config['log_file'], "a");
+                if(!$this->log_file_handle){
+                    $this->show_help("Could not open log file {$this->config['log_file']}");
+                }
+            }
+        }
+
         if(isset($opts["v"])){
             switch($opts["v"]){
                 case false:
@@ -398,22 +411,25 @@ class GearmanManager {
                 $this->show_help("User ({$this->user}) not found.");
             }
 
+            /**
+             * Ensure new uid can read/write pid and log files
+             */
+            if(!empty($this->pid_file)){
+                if(!chown($this->pid_file, $user['uid'])){
+                    $this->log("Unable to chown PID file to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
+                }
+            }
+            if(!empty($this->log_file_handle)){
+                if(!chown($this->config['log_file'], $user['uid'])){
+                    $this->log("Unable to chown log file to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
+                }
+            }
+
             posix_setuid($user['uid']);
             if (posix_geteuid() != $user['uid']) {
                 $this->show_help("Unable to change user to {$this->user} (UID: {$user['uid']}).");
             }
             $this->log("User set to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
-        }
-
-        if(!empty($this->config['log_file'])){
-            if($this->config['log_file'] === 'syslog'){
-                $this->log_syslog = true;
-            } else {
-                $this->log_file_handle = @fopen($this->config['log_file'], "a");
-                if(!$this->log_file_handle){
-                    $this->show_help("Could not open log file {$this->config['log_file']}");
-                }
-            }
         }
 
         if(!empty($this->config['auto_update'])){
