@@ -13,7 +13,8 @@
 ### END INIT INFO
 
 DAEMON=/usr/local/bin/gearman-manager
-PIDFILE=/var/run/gearman-manager.pid
+PIDDIR=/var/run/gearman
+PIDFILE=${PIDDIR}/manager.pid
 LOGFILE=/var/log/gearman-manager.log
 CONFIGDIR=/etc/gearman-manager
 GEARMANUSER="gearman"
@@ -26,6 +27,11 @@ test -x ${DAEMON} || exit 0
 start()
 {
   log_daemon_msg "Starting Gearman Manager"
+  if ! test -d ${PIDDIR}
+  then
+    mkdir ${PIDDIR}
+    chown ${GEARMANUSER} ${PIDDIR}
+  fi
   if start-stop-daemon \
     --start \
     --startas $DAEMON \

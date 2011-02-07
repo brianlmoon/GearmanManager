@@ -16,7 +16,8 @@
 . /etc/rc.d/init.d/functions
 
 DAEMON=/usr/local/bin/gearman-manager
-PIDFILE=/var/run/gearman-manager.pid
+PIDDIR=/var/run/gearman
+PIDFILE=${PIDDIR}/manager.pid
 LOGFILE=/var/log/gearman-manager.log
 CONFIGDIR=/etc/gearman-manager
 GEARMANUSER="gearmand"
@@ -26,6 +27,11 @@ RETVAL=0
 
 start() {
         echo -n $"Starting gearman-manager: "
+        if ! test -d ${PIDDIR}
+        then
+          mkdir ${PIDDIR}
+          chown ${GEARMANUSER} ${PIDDIR}
+        fi
         daemon --pidfile=$PIDFILE $DAEMON \
             -P $PIDFILE \
             -l $LOGFILE \
