@@ -15,6 +15,7 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
+##PATH##
 DAEMON=/usr/local/bin/gearman-manager
 PIDDIR=/var/run/gearman
 PIDFILE=${PIDDIR}/manager.pid
