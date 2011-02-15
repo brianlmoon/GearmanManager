@@ -188,8 +188,8 @@ class GearmanPeclManager extends GearmanManager {
             if(!function_exists($func) &&
                (!class_exists($func) || !method_exists($func, "run"))){
                 $this->log("Function $func not found in ".$props["path"]);
-                posix_kill($this->pid, SIGUSR2);
-                exit();
+                posix_kill($this->parent_pid, SIGUSR2);
+                exit(1);
             }
         }
     }
