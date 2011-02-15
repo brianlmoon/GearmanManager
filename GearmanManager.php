@@ -633,7 +633,7 @@ class GearmanManager {
         if(empty($this->functions)){
             $this->log("No workers found");
             posix_kill($this->parent_pid, SIGUSR1);
-            exit(1);
+            exit();
         }
 
         $this->validate_lib_workers();
