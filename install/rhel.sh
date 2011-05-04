@@ -46,7 +46,7 @@ start() {
 
 stop() {
         echo -n $"Stopping gearman-manager: "
-        killproc -p $PIDFILE $DAEMON
+        killproc -p $PIDFILE -TERM $DAEMON
         RETVAL=$?
         echo
 }
