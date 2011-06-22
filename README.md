@@ -4,10 +4,10 @@ Gearman Manager for PHP
 PHP Requirements
 ----------------
 
-PHP 5.2.? - not sure exact version
-POSIX extension
-Process Control extension
-pecl/gearman or Net_Gearman
+ * PHP 5.2.? - not sure exact version
+ * POSIX extension
+ * Process Control extension
+ * pecl/gearman or Net_Gearman
 
 Why use GearmanManager
 ======================
@@ -23,47 +23,47 @@ We start by deciding where our worker code will live. For this example, lets say
 
 Procedural:
 
-# cat worker_dir/example_function.php
+ # cat worker_dir/example_function.php
 
-function example_function($job, &$log) {
+ function example_function($job, &$log) {
 
-    $workload = $job->workload();
+     $workload = $job->workload();
 
-    // do work on $job here as documented in pecl/gearman docs
+     // do work on $job here as documented in pecl/gearman docs
 
-    // Log is an array that is passed in by reference that can be
-    // added to for logging data that is not part of the return data
-    $log[] = "Success";
+     // Log is an array that is passed in by reference that can be
+     // added to for logging data that is not part of the return data
+     $log[] = "Success";
 
-    // return your result for the client
-    return $result;
+     // return your result for the client
+     return $result;
 
-}
+ }
 
 The existence of this code would register a function named example_function with the gearmand server.
 
 Object Oriented:
 
-# cat worker_dir/ExampleFunction.php
+ # cat worker_dir/ExampleFunction.php
 
-class ExampleFunction {
+ class ExampleFunction {
 
-    public function run($job, &$log) {
+     public function run($job, &$log) {
 
-        $workload = $job->workload();
+         $workload = $job->workload();
 
-        // do work on $job here as documented in pecl/gearman docs
+         // do work on $job here as documented in pecl/gearman docs
 
-        // Log is an array that is passed in by reference that can be
-        // added to for logging data that is not part of the return data
-        $log[] = "Success";
+         // Log is an array that is passed in by reference that can be
+         // added to for logging data that is not part of the return data
+         $log[] = "Success";
 
-        // return your result for the client
-        return $result;
+         // return your result for the client
+         return $result;
 
-    }
+     }
 
-}
+ }
 
 The existence of this code would register a function named ExampleFunction with the gearmand server.
 
@@ -137,7 +137,7 @@ Running the daemon
 
 Minimal command line is:
 
-# ./pecl-manager.php -c /path/to/config.ini
+ # ./pecl-manager.php -c /path/to/config.ini
 
 There are some more command line options that are handy for running the daemon.
 
