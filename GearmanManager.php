@@ -448,11 +448,13 @@ abstract class GearmanManager {
         }
 
         $dirs = explode(",", $this->worker_dir);
-        foreach($dirs as $dir){
+        foreach($dirs as &$dir){
+            $dir = trim($dir);
             if(!file_exists($dir)){
                 $this->show_help("Worker dir ".$dir." not found");
             }
         }
+        unset($dir);
 
         if(!empty($this->config['max_worker_lifetime'])){
             $this->max_run_time = (int)$this->config['max_worker_lifetime'];
