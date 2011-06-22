@@ -40,7 +40,7 @@ error_reporting(E_ALL | E_STRICT);
 /**
  * Class that handles all the process management
  */
-class GearmanManager {
+abstract class GearmanManager {
 
     /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
@@ -625,7 +625,7 @@ class GearmanManager {
                 while($this->wait_for_signal && !$this->stop_work) {
                     usleep(5000);
                     pcntl_waitpid($pid, $status, WNOHANG);
-                   
+
                     if (pcntl_wifexited($status) && $status) {
                          $this->log("Child exited with non-zero exit code $status.");
                          exit(1);
