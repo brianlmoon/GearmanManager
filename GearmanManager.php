@@ -40,7 +40,7 @@ error_reporting(E_ALL | E_STRICT);
 /**
  * Class that handles all the process management
  */
-class GearmanManager {
+abstract class GearmanManager {
 
     /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
@@ -106,6 +106,11 @@ class GearmanManager {
      * The PID of the running process. Set for parent and child processes
      */
     protected $pid = 0;
+
+    /**
+     * The PID of the parent process, when running in the forked helper.
+     */
+    protected $parent_pid = 0;
 
     /**
      * PID file for the parent process
@@ -287,7 +292,9 @@ class GearmanManager {
     public function __destruct() {
         if($this->isparent){
             if(!empty($this->pid_file) && file_exists($this->pid_file)){
-                unlink($this->pid_file);
+                if(!unlink($this->pid_file)) {
+                    $this->log("Could not delete PID file", GearmanManager::LOG_LEVEL_PROC_INFO);
+                }
             }
         }
     }
@@ -382,6 +389,17 @@ class GearmanManager {
             $this->pid_file = $this->config['pid_file'];
         }
 
+        if(!empty($this->config['log_file'])){
+            if($this->config['log_file'] === 'syslog'){
+                $this->log_syslog = true;
+            } else {
+                $this->log_file_handle = @fopen($this->config['log_file'], "a");
+                if(!$this->log_file_handle){
+                    $this->show_help("Could not open log file {$this->config['log_file']}");
+                }
+            }
+        }
+
         if(isset($opts["v"])){
             switch($opts["v"]){
                 case false:
@@ -409,22 +427,25 @@ class GearmanManager {
                 $this->show_help("User ({$this->user}) not found.");
             }
 
+            /**
+             * Ensure new uid can read/write pid and log files
+             */
+            if(!empty($this->pid_file)){
+                if(!chown($this->pid_file, $user['uid'])){
+                    $this->log("Unable to chown PID file to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
+                }
+            }
+            if(!empty($this->log_file_handle)){
+                if(!chown($this->config['log_file'], $user['uid'])){
+                    $this->log("Unable to chown log file to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
+                }
+            }
+
             posix_setuid($user['uid']);
             if (posix_geteuid() != $user['uid']) {
                 $this->show_help("Unable to change user to {$this->user} (UID: {$user['uid']}).");
             }
             $this->log("User set to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
-        }
-
-        if(!empty($this->config['log_file'])){
-            if($this->config['log_file'] === 'syslog'){
-                $this->log_syslog = true;
-            } else {
-                $this->log_file_handle = @fopen($this->config['log_file'], "a");
-                if(!$this->log_file_handle){
-                    $this->show_help("Could not open log file {$this->config['log_file']}");
-                }
-            }
         }
 
         if(!empty($this->config['auto_update'])){
@@ -438,11 +459,13 @@ class GearmanManager {
         }
 
         $dirs = explode(",", $this->worker_dir);
-        foreach($dirs as $dir){
+        foreach($dirs as &$dir){
+            $dir = trim($dir);
             if(!file_exists($dir)){
                 $this->show_help("Worker dir ".$dir." not found");
             }
         }
+        unset($dir);
 
         if(!empty($this->config['max_worker_lifetime'])){
             $this->max_run_time = (int)$this->config['max_worker_lifetime'];
@@ -602,6 +625,8 @@ class GearmanManager {
         switch($pid) {
             case 0:
                 $this->isparent = false;
+                $this->parent_pid = $this->pid;
+                $this->pid = getmypid();
                 $this->$method();
                 break;
             case -1:
@@ -612,6 +637,13 @@ class GearmanManager {
                 $this->helper_pid = $pid;
                 while($this->wait_for_signal && !$this->stop_work) {
                     usleep(5000);
+                    pcntl_waitpid($pid, $status, WNOHANG);
+
+                    if (pcntl_wifexited($status) && $status) {
+                         $this->log("Child exited with non-zero exit code $status.");
+                         exit(1);
+                    }
+
                 }
                 break;
         }
@@ -623,17 +655,13 @@ class GearmanManager {
      *
      */
     protected function validate_workers(){
-
-        $parent_pid = $this->pid;
-        $this->pid = getmypid();
-
         $this->log("Helper forked", GearmanManager::LOG_LEVEL_PROC_INFO);
 
         $this->load_workers();
 
         if(empty($this->functions)){
             $this->log("No workers found");
-            posix_kill($parent_pid, SIGUSR1);
+            posix_kill($this->parent_pid, SIGUSR1);
             exit();
         }
 
@@ -642,7 +670,7 @@ class GearmanManager {
         /**
          * Since we got here, all must be ok, send a CONTINUE
          */
-        posix_kill($parent_pid, SIGCONT);
+        posix_kill($this->parent_pid, SIGCONT);
 
         if($this->check_code){
             $this->log("Running loop to check for new code", self::LOG_LEVEL_DEBUG);
@@ -656,7 +684,7 @@ class GearmanManager {
                     $this->log("{$func['path']} - $mtime $last_check_time", self::LOG_LEVEL_CRAZY);
                     if($last_check_time!=0 && $mtime > $last_check_time){
                         $this->log("New code found. Sending SIGHUP", self::LOG_LEVEL_PROC_INFO);
-                        posix_kill($parent_pid, SIGHUP);
+                        posix_kill($this->parent_pid, SIGHUP);
                         break;
                     }
                 }

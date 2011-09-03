@@ -207,3 +207,4 @@ class GearmanPeclManager extends GearmanManager {
 $mgr = new GearmanPeclManager();
 
 ?>
+
