@@ -132,9 +132,13 @@ class GearmanPeclManager extends GearmanManager {
          * Run the real function here
          */
         if(isset($objects[$job_name])){
+            $this->log("($h) Calling object for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $objects[$job_name]->run($job, $log);
-        } else {
+        } elseif(function_exists($func)) {
+            $this->log("($h) Calling function for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $func($job, $log);
+        } else {
+            $this->log("($h) FAILED to find a function or class for $job_name.", GearmanManager::LOG_LEVEL_INFO);
         }
 
         if(!empty($log)){
