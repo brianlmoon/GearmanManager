@@ -355,7 +355,7 @@ abstract class GearmanManager {
 
         if (isset($opts['p'])) {
             $this->prefix = $opts['p'];
-        } elseif($this->config['prefix']) {
+        } elseif(!empty($this->config['prefix'])) {
             $this->prefix = $this->config['prefix'];
         }
 
