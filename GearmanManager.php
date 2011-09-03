@@ -770,6 +770,8 @@ abstract class GearmanManager {
 
                 if($worker == "all"){
                     $worker_list = array_keys($this->functions);
+                    // shuffle the list to avoid queue preference
+                    shuffle($worker_list);
                 } else {
                     $worker_list = array($worker);
                 }
