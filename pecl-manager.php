@@ -92,31 +92,37 @@ class GearmanPeclManager extends GearmanManager {
 
         $h = $job->handle();
 
-        $f = $job->functionName();
+        $job_name = $job->functionName();
 
-        if(empty($objects[$f]) && !function_exists($f) && !class_exists($f)){
+        if($this->prefix){
+            $func = $this->prefix.$job_name;
+        } else {
+            $func = $job_name;
+        }
 
-            if(!isset($this->functions[$f])){
-                $this->log("Function $f is not a registered job name");
+        if(empty($objects[$job_name]) && !function_exists($func) && !class_exists($func)){
+
+            if(!isset($this->functions[$job_name])){
+                $this->log("Function $func is not a registered job name");
                 return;
             }
 
-            @include $this->functions[$f]["path"];
+            @include $this->functions[$job_name]["path"];
 
-            if(class_exists($f) && method_exists($f, "run")){
+            if(class_exists($func) && method_exists($func, "run")){
 
-                $this->log("Creating a $f object", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                $objects[$f] = new $f();
+                $this->log("Creating a $func object", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                $objects[$job_name] = new $func();
 
-            } elseif(!function_exists($f)) {
+            } elseif(!function_exists($func)) {
 
-                $this->log("Function $f not found");
+                $this->log("Function $func not found");
                 return;
             }
 
         }
 
-        $this->log("($h) Starting Job: $f", GearmanManager::LOG_LEVEL_WORKER_INFO);
+        $this->log("($h) Starting Job: $job_name", GearmanManager::LOG_LEVEL_WORKER_INFO);
 
         $this->log("($h) Workload: $w", GearmanManager::LOG_LEVEL_DEBUG);
 
@@ -125,10 +131,10 @@ class GearmanPeclManager extends GearmanManager {
         /**
          * Run the real function here
          */
-        if(isset($objects[$f])){
-            $result = $objects[$f]->run($job, $log);
+        if(isset($objects[$job_name])){
+            $result = $objects[$job_name]->run($job, $log);
         } else {
-            $result = $f($job, $log);
+            $result = $func($job, $log);
         }
 
         if(!empty($log)){
@@ -185,13 +191,15 @@ class GearmanPeclManager extends GearmanManager {
 
         foreach($this->functions as $func => $props){
             @include $props["path"];
-            if(!function_exists($func) &&
-               (!class_exists($func) || !method_exists($func, "run"))){
-                $this->log("Function $func not found in ".$props["path"]);
+            $real_func = $this->prefix.$func;
+            if(!function_exists($real_func) &&
+               (!class_exists($real_func) || !method_exists($real_func, "run"))){
+                $this->log("Function $real_func not found in ".$props["path"]);
                 posix_kill($this->pid, SIGUSR2);
                 exit();
             }
         }
+
     }
 
 }

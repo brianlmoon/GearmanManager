@@ -165,6 +165,11 @@ class GearmanManager {
     protected $functions = array();
 
     /**
+     * Function/Class prefix
+     */
+    protected $prefix = "";
+
+    /**
      * Creates the manager and gets things going
      *
      */
@@ -293,7 +298,7 @@ class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:P:u:v::w:x:Z");
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:x:Z");
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -341,10 +346,16 @@ class GearmanManager {
             $this->config['host'] = $opts['h'];
         }
 
-        if(isset($this->config["user"])){
-            $this->user = $this->config["user"];
-        } elseif(isset($opts['u'])){
+        if (isset($opts['p'])) {
+            $this->prefix = $opts['p'];
+        } elseif($this->config['prefix']) {
+            $this->prefix = $this->config['prefix'];
+        }
+
+        if(isset($opts['u'])){
             $this->user = $opts['u'];
+        } elseif(isset($this->config["user"])){
+            $this->user = $this->config["user"];
         }
 
         /**
@@ -942,6 +953,7 @@ class GearmanManager {
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
         echo "  -H             Shows this help\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
+        echo "  -p PREFIX      Optional prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
