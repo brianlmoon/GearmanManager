@@ -57,6 +57,12 @@ abstract class GearmanManager {
     const DEFAULT_CONFIG = "GearmanManager";
 
     /**
+     * Defines job priority limits
+     */
+    const MIN_PRIORITY = -5;
+    const MAX_PRIORITY = 5;
+
+    /**
      * Holds the worker configuration
      */
     protected $config = array();
@@ -606,7 +612,16 @@ abstract class GearmanManager {
                     $this->functions[$function]["count"] = max($min_count, $ded_count);
 
                     $this->functions[$function]['path'] = $file;
-
+                    
+                    if(!empty($this->config['functions'][$function]['priority'])){
+                        $priority = max(min(
+                            $this->config['functions'][$function]['priority'],
+                            self::MAX_PRIORITY), self::MIN_PRIORITY);
+                    } else {
+                        $priority = 0;
+                    }
+                    
+                    $this->functions[$function]['priority'] = $priority;
                 }
             }
         }
@@ -769,9 +784,9 @@ abstract class GearmanManager {
                 $this->pid = getmypid();
 
                 if($worker == "all"){
-                    $worker_list = array_keys($this->functions);
                     // shuffle the list to avoid queue preference
-                    shuffle($worker_list);
+                    $this->shuffle_and_sort($this->functions);
+                    $worker_list = array_keys($this->functions);
                 } else {
                     $worker_list = array($worker);
                 }
@@ -800,7 +815,30 @@ abstract class GearmanManager {
 
     }
 
+    function shuffle_and_sort(&$array) {
+        $keys_and_priorities = array();
+        foreach($array as $fname=>$data) {
+            $keys_and_priorities[] = array("key"=>$fname, "priority"=>$data["priority"]);
+        }
 
+        shuffle($keys_and_priorities);
+        usort($keys_and_priorities, array($this,'compare_priority'));
+
+        foreach($keys_and_priorities as $keys_and_priority) {
+            $new[$keys_and_priority["key"]] = $array[$keys_and_priority["key"]];
+        }
+
+        $array = $new;
+        return true;
+    }
+    
+    function compare_priority($a, $b)
+    {
+        if ($a['priority'] == $b['priority']) {
+            return 0;
+        }
+        return ($a['priority'] > $b['priority']) ? -1 : 1;
+    }
 
     /**
      * Stops all running children
