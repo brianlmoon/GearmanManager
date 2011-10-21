@@ -64,6 +64,7 @@ class GearmanPearManager extends GearmanManager {
         $worker->attachCallback(array($this, 'job_fail'), Net_Gearman_Worker::JOB_FAIL);
 
         $this->start_time = time();
+        $this->job_execution_count++;
 
         $worker->beginWork(array($this, "monitor"));
 
@@ -87,6 +88,11 @@ class GearmanPearManager extends GearmanManager {
         $time = time() - $lastJob;
 
         $this->log("Worker's last job $time seconds ago", GearmanManager::LOG_LEVEL_CRAZY);
+
+        if(isset($this->max_runs_per_worker) && $this->job_execution_count >= $this->max_runs_per_worker) {
+            $this->log("Ran $this->job_execution_count jobs which is over the maximum($this->max_runs_per_worker), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
+            $this->stop_work = true;
+        }
 
         return $this->stop_work;
     }
