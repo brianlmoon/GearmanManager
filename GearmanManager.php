@@ -186,9 +186,14 @@ abstract class GearmanManager {
     protected $functions = array();
 
     /**
-     * List of functions to start a independent number of workers 
+     * Workers that are included in the general pool
      */
-    protected $independent_functions = array();
+    protected $function_names = array();
+
+    /**
+     * Workers that get their own process and are not in the pool
+     */
+    protected $independent_function_names = array();
 
     /**
      * Function/Class prefix
@@ -647,7 +652,11 @@ abstract class GearmanManager {
                         $ded_count = $min_count;
                     }
 
-                    $this->functions[$function]["count"] = max($min_count, $ded_count);
+                    if ($this->functions[$function]['is_independent']) {
+                        $this->functions[$function]['count'] = $ded_count;
+                    } else {
+                        $this->functions[$function]["count"] = max($min_count, $ded_count);
+                    }
 
                     $this->functions[$function]['path'] = $file;
                     
@@ -663,8 +672,9 @@ abstract class GearmanManager {
 
                     // we don't want independent function to be registered with the regular functions
                     if ($this->functions[$function]['is_independent']) {
-                        $this->independent_functions[$function] = $this->functions[$function];
-                        unset($this->functions[$function]);
+                        $this->independent_function_names[] = $function;
+                    } else {
+                        $this->function_names[] = $function;
                     }
                 }
             }
@@ -772,7 +782,7 @@ abstract class GearmanManager {
                 $this->start_worker();
             }
 
-            foreach(array_keys($this->functions) as $worker){
+            foreach($this->function_names as $worker){
                 $this->function_count[$worker] = $this->do_all_count;
             }
 
@@ -781,12 +791,12 @@ abstract class GearmanManager {
         /**
          * Now start up workers that are independent at a certain limit
          */
-        $this->ensure_correct_numworkers_started($this->independent_functions);
+        $this->ensure_correct_numworkers_started($this->independent_function_names);
 
         /**
          * Next loop the normal workers and ensure we have enough running
          */
-        $this->ensure_correct_numworkers_started($this->functions);
+        $this->ensure_correct_numworkers_started($this->function_names);
 
         /**
          * Set the last code check time to now since we just loaded all the code
@@ -798,8 +808,9 @@ abstract class GearmanManager {
     /**
      * Loop through the functions passed in, and ensure we have the proper number running
      */
-    protected function ensure_correct_numworkers_started($functions) {
-        foreach($functions as $worker=>$config) {
+    protected function ensure_correct_numworkers_started($function_names) {
+        foreach($function_names as $worker) {
+            $config = $this->functions[$worker];
 
             if(empty($this->function_count[$worker])){
                 $this->function_count[$worker] = 0;
@@ -834,8 +845,7 @@ abstract class GearmanManager {
 
                 if($worker == "all"){
                     // shuffle the list to avoid queue preference
-                    $this->shuffle_and_sort($this->functions);
-                    $worker_list = array_keys($this->functions);
+                    $worker_list = $this->shuffle_and_sort($this->function_names);
                 } else {
                     $worker_list = array($worker);
                 }
@@ -864,29 +874,19 @@ abstract class GearmanManager {
 
     }
 
-    function shuffle_and_sort(&$array) {
-        $keys_and_priorities = array();
-        foreach($array as $fname=>$data) {
-            $keys_and_priorities[] = array("key"=>$fname, "priority"=>$data["priority"]);
-        }
+    function shuffle_and_sort($array) {
+        shuffle($array);
+        usort($array, array($this, 'compare_priority'));
 
-        shuffle($keys_and_priorities);
-        usort($keys_and_priorities, array($this,'compare_priority'));
-
-        foreach($keys_and_priorities as $keys_and_priority) {
-            $new[$keys_and_priority["key"]] = $array[$keys_and_priority["key"]];
-        }
-
-        $array = $new;
-        return true;
+        return $array;
     }
     
     function compare_priority($a, $b)
     {
-        if ($a['priority'] == $b['priority']) {
+        if ($this->functions[$a]['priority'] == $this->functions[$b]['priority']) {
             return 0;
         }
-        return ($a['priority'] > $b['priority']) ? -1 : 1;
+        return ($this->functions[$a]['priority'] > $this->functions[$b]['priority']) ? -1 : 1;
     }
 
     /**
