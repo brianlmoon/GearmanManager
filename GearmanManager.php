@@ -633,7 +633,7 @@ abstract class GearmanManager {
                         $this->functions[$function] = array();
                     }
 
-                    if($this->config['functions'][$function]['dedicated_only']){
+                    if(!empty($this->config['functions'][$function]['dedicated_only'])){
 
                         if(empty($this->config['functions'][$function]['dedicated_count'])){
                             $this->log("Invalid configuration for dedicated_count for function $function.", GearmanManager::LOG_LEVEL_PROC_INFO);
