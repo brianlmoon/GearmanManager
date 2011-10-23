@@ -403,10 +403,8 @@ abstract class GearmanManager {
             if($this->config['log_file'] === 'syslog'){
                 $this->log_syslog = true;
             } else {
-                $this->log_file_handle = @fopen($this->config['log_file'], "a");
-                if(!$this->log_file_handle){
-                    $this->show_help("Could not open log file {$this->config['log_file']}");
-                }
+                $this->log_file = $this->config['log_file'];
+                $this->open_log_file($this->log_file);
             }
         }
 
