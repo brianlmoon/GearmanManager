@@ -170,6 +170,11 @@ abstract class GearmanManager {
     protected $functions = array();
 
     /**
+     * Function/Class prefix
+     */
+    protected $prefix = "";
+
+    /**
      * Creates the manager and gets things going
      *
      */
@@ -300,7 +305,7 @@ abstract class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:P:u:v::w:x:Z");
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:x:Z");
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -348,10 +353,16 @@ abstract class GearmanManager {
             $this->config['host'] = $opts['h'];
         }
 
-        if(isset($this->config["user"])){
-            $this->user = $this->config["user"];
-        } elseif(isset($opts['u'])){
+        if (isset($opts['p'])) {
+            $this->prefix = $opts['p'];
+        } elseif(!empty($this->config['prefix'])) {
+            $this->prefix = $this->config['prefix'];
+        }
+
+        if(isset($opts['u'])){
             $this->user = $opts['u'];
+        } elseif(isset($this->config["user"])){
+            $this->user = $this->config["user"];
         }
 
         /**
@@ -789,6 +800,14 @@ abstract class GearmanManager {
 
                 $this->pid = getmypid();
 
+                if($worker == "all"){
+                    $worker_list = array_keys($this->functions);
+                    // shuffle the list to avoid queue preference
+                    shuffle($worker_list);
+                } else {
+                    $worker_list = array($worker);
+                }
+
                 $this->start_lib_worker($worker_list);
 
                 $this->log("Child exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
@@ -996,6 +1015,7 @@ abstract class GearmanManager {
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
         echo "  -H             Shows this help\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
+        echo "  -p PREFIX      Optional prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
