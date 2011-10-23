@@ -165,6 +165,21 @@ abstract class GearmanManager {
     protected $max_run_time = 3600;
 
     /**
+     * Maximum number of jobs this worker will do before quitting
+     */
+    protected $max_job_count = 0;
+
+    /**
+     * Maximum job iterations per worker
+     */
+    protected $max_runs_per_worker = null;
+
+    /**
+     * Number of times this worker has run a job
+     */
+    protected $job_execution_count = 0;
+
+    /**
      * Servers that workers connect to
      */
     protected $servers = array();
@@ -310,7 +325,7 @@ abstract class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:x:Z");
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -353,6 +368,10 @@ abstract class GearmanManager {
 
         if (isset($opts['x'])) {
             $this->config['max_worker_lifetime'] = (int)$opts['x'];
+        }
+
+        if (isset($opts['r'])) {
+            $this->config['max_runs_per_worker'] = (int)$opts['r'];
         }
 
         if (isset($opts['D'])) {
@@ -1049,6 +1068,7 @@ abstract class GearmanManager {
         echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
         echo "  -w DIR         Directory where workers are located, defaults to ./workers. If you are using PECL, you can provide multiple directories separated by a comma.\n";
+        echo "  -r NUMBER      Maximum job iterations per worker\n";
         echo "  -x SECONDS     Maximum seconds for a worker to live\n";
         echo "  -Z             Parse the command line and config file then dump it to the screen and exit.\n";
         echo "\n";
