@@ -57,6 +57,12 @@ abstract class GearmanManager {
     const DEFAULT_CONFIG = "GearmanManager";
 
     /**
+     * Defines job priority limits
+     */
+    const MIN_PRIORITY = -5;
+    const MAX_PRIORITY = 5;
+
+    /**
      * Holds the worker configuration
      */
     protected $config = array();
@@ -664,6 +670,22 @@ abstract class GearmanManager {
 
                     $this->functions[$function]['path'] = $file;
 
+                    /**
+                     * Note about priority. This exploits an undocumented feature
+                     * of the gearman daemon. This will only work as long as the
+                     * current behavior of the daemon remains the same. It is not
+                     * a defined part fo the protocol.
+                     */
+                    if(!empty($this->config['functions'][$function]['priority'])){
+                        $priority = max(min(
+                            $this->config['functions'][$function]['priority'],
+                            self::MAX_PRIORITY), self::MIN_PRIORITY);
+                    } else {
+                        $priority = 0;
+                    }
+
+                    $this->functions[$function]['priority'] = $priority;
+
                 }
             }
         }
@@ -844,9 +866,15 @@ abstract class GearmanManager {
                 $this->pid = getmypid();
 
                 if($worker == "all"){
+
                     $worker_list = array_keys($this->functions);
+
                     // shuffle the list to avoid queue preference
                     shuffle($worker_list);
+
+                    // sort the shuffled array by priority
+                    uasort($worker_list, array($this, "sort_priority"));
+
                 } else {
                     $worker_list = array($worker);
                 }
@@ -875,7 +903,21 @@ abstract class GearmanManager {
 
     }
 
-
+    /**
+     * Sorts the function list by priority
+     */
+    private function sort_priority($a, $b) {
+        if(!isset($a["priority"])){
+            $a["priority"] = 0;
+        }
+        if(!isset($b["priority"])){
+            $b["priority"] = 0;
+        }
+        if ($a["priority"] == $b["priority"]) {
+            return 0;
+        }
+        return ($a["priority"] > $b["priority"]) ? -1 : 1;
+    }
 
     /**
      * Stops all running children
