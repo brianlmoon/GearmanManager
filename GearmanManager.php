@@ -579,20 +579,34 @@ abstract class GearmanManager {
                         $this->functions[$function] = array();
                     }
 
-                    $min_count = max($this->do_all_count, 1);
-                    if(!empty($this->config['functions'][$function]['count'])){
-                        $min_count = max($this->config['functions'][$function]['count'], $this->do_all_count);
-                    }
+                    if($this->config['functions'][$function]['dedicated_only']){
 
-                    if(!empty($this->config['functions'][$function]['dedicated_count'])){
-                        $ded_count = $this->do_all_count + $this->config['functions'][$function]['dedicated_count'];
-                    } elseif(!empty($this->config["dedicated_count"])){
-                        $ded_count = $this->do_all_count + $this->config["dedicated_count"];
+                        if(empty($this->config['functions'][$function]['dedicated_count'])){
+                            $this->log("Invalid configuration for dedicated_count for function $function.", GearmanManager::LOG_LEVEL_PROC_INFO);
+                            exit();
+                        }
+
+                        $this->functions[$function]['dedicated_only'] = true;
+                        $this->functions[$function]["count"] = $this->config['functions'][$function]['dedicated_count'];
+
                     } else {
-                        $ded_count = $min_count;
-                    }
 
-                    $this->functions[$function]["count"] = max($min_count, $ded_count);
+                        $min_count = max($this->do_all_count, 1);
+                        if(!empty($this->config['functions'][$function]['count'])){
+                            $min_count = max($this->config['functions'][$function]['count'], $this->do_all_count);
+                        }
+
+                        if(!empty($this->config['functions'][$function]['dedicated_count'])){
+                            $ded_count = $this->do_all_count + $this->config['functions'][$function]['dedicated_count'];
+                        } elseif(!empty($this->config["dedicated_count"])){
+                            $ded_count = $this->do_all_count + $this->config["dedicated_count"];
+                        } else {
+                            $ded_count = $min_count;
+                        }
+
+                        $this->functions[$function]["count"] = max($min_count, $ded_count);
+
+                    }
 
                     $this->functions[$function]['path'] = $file;
 
@@ -704,8 +718,10 @@ abstract class GearmanManager {
                 $this->start_worker();
             }
 
-            foreach(array_keys($this->functions) as $worker){
-                $function_count[$worker] = $this->do_all_count;
+            foreach($this->functions as $worker => $settings){
+                if(empty($settings["dedicated_only"])){
+                    $function_count[$worker] = $this->do_all_count;
+                }
             }
 
         }
@@ -745,6 +761,22 @@ abstract class GearmanManager {
 
     protected function start_worker($worker="all") {
 
+        static $all_workers;
+
+        if($worker == "all"){
+            if(is_null($all_workers)){
+                $all_workers = array();
+                foreach($this->functions as $func=>$settings){
+                    if(empty($settings["dedicated_only"])){
+                        $all_workers[] = $func;
+                    }
+                }
+            }
+            $worker_list = $all_workers;
+        } else {
+            $worker_list = array($worker);
+        }
+
         $pid = pcntl_fork();
 
         switch($pid) {
@@ -756,12 +788,6 @@ abstract class GearmanManager {
                 $this->register_ticks(false);
 
                 $this->pid = getmypid();
-
-                if($worker == "all"){
-                    $worker_list = array_keys($this->functions);
-                } else {
-                    $worker_list = array($worker);
-                }
 
                 $this->start_lib_worker($worker_list);
 
@@ -781,7 +807,7 @@ abstract class GearmanManager {
             default:
 
                 // parent
-                $this->log("Started child $pid ($worker)", GearmanManager::LOG_LEVEL_PROC_INFO);
+                $this->log("Started child $pid (".implode(",", $worker_list).")", GearmanManager::LOG_LEVEL_PROC_INFO);
                 $this->children[$pid] = $worker;
         }
 
