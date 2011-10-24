@@ -865,18 +865,13 @@ abstract class GearmanManager {
 
                 $this->pid = getmypid();
 
-                if($worker == "all"){
-
-                    $worker_list = array_keys($this->functions);
+                if(count($worker_list) > 1){
 
                     // shuffle the list to avoid queue preference
                     shuffle($worker_list);
 
                     // sort the shuffled array by priority
                     uasort($worker_list, array($this, "sort_priority"));
-
-                } else {
-                    $worker_list = array($worker);
                 }
 
                 $this->start_lib_worker($worker_list);
@@ -907,16 +902,19 @@ abstract class GearmanManager {
      * Sorts the function list by priority
      */
     private function sort_priority($a, $b) {
-        if(!isset($a["priority"])){
-            $a["priority"] = 0;
+        $func_a = $this->functions[$a];
+        $func_b = $this->functions[$b];
+
+        if(!isset($func_a["priority"])){
+            $func_a["priority"] = 0;
         }
-        if(!isset($b["priority"])){
-            $b["priority"] = 0;
+        if(!isset($func_b["priority"])){
+            $func_b["priority"] = 0;
         }
-        if ($a["priority"] == $b["priority"]) {
+        if ($func_a["priority"] == $func_b["priority"]) {
             return 0;
         }
-        return ($a["priority"] > $b["priority"]) ? -1 : 1;
+        return ($func_a["priority"] > $func_b["priority"]) ? -1 : 1;
     }
 
     /**
