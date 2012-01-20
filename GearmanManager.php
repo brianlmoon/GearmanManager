@@ -469,7 +469,7 @@ abstract class GearmanManager {
                 }
             }
             if(!empty($this->log_file_handle)){
-                if(!chown($this->config['log_file'], $user['uid'])){
+                if(!chown($this->log_file, $user['uid'])){
                     $this->log("Unable to chown log file to {$this->user}", GearmanManager::LOG_LEVEL_PROC_INFO);
                 }
             }
