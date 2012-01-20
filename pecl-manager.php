@@ -112,7 +112,7 @@ class GearmanPeclManager extends GearmanManager {
                 return;
             }
 
-            @include $this->functions[$job_name]["path"];
+            require_once $this->functions[$job_name]["path"];
 
             if(class_exists($func) && method_exists($func, "run")){
 
