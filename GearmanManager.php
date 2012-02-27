@@ -611,7 +611,7 @@ abstract class GearmanManager {
 
             $this->log("Loading workers in ".$dir);
 
-            $worker_files = glob($dir."/*.php");
+            $worker_files = $this->glob_recursive($dir."/*.php");
 
             if (!empty($worker_files)) {
 
@@ -1115,6 +1115,20 @@ abstract class GearmanManager {
         exit();
     }
 
+    /**
+     * A version of glob that is recursive
+     * @param string $pattern The pattern.
+     * @param int $flags @see glob
+     * @return array Returns an array containing the matched files/directories, an empty array if no file matched
+     */
+    function glob_recursive($pattern, $flags = 0) {
+        $files = glob($pattern, $flags);
+        foreach (glob(dirname($pattern).DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir) {
+            $files = array_merge($files, $this->glob_recursive($dir.DIRECTORY_SEPARATOR.basename($pattern), $flags));
+        }
+        
+        return $files;
+    }
 }
 
 ?>
