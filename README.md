@@ -146,3 +146,32 @@ There are some more command line options that are handy for running the daemon.
 -d - If set on the command line, the manager will daemonize
 
 -u - The user to run the daemon as. You can also use user in the ini file.
+
+Debugging
+=========
+
+So you built an awesome worker but for some reason it dies and the `error_log` is empty?
+
+GearmanManager makes use of the supression operator (`@`) every now and then which makes it a little harder to debug because error messages are silenced.
+
+The solution is [Xdebug](http://xdebug.org/)'s scream and the steps to set it up are:
+
+ 1. Install Xdebug
+ 2. Configure it
+ 3. Profit!
+
+
+Installation
+------------
+
+    pecl install xdebug
+
+Configuration
+-------------
+
+Put the following into your `xdebug.ini`:
+
+    zend_extension="/path/to/where/your/xdebug.so"
+    xdebug.scream = 1
+    xdebug.show_exception_trace = 1
+
