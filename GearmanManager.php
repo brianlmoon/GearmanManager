@@ -515,7 +515,7 @@ abstract class GearmanManager {
                 $this->servers = $this->config['host'];
             }
         } else {
-            $this->servers = array("127.0.0.1");
+            $this->servers = array("127.0.0.1:4730");
         }
 
         if (!empty($this->config['include']) && $this->config['include'] != "*") {
