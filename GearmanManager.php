@@ -84,6 +84,11 @@ abstract class GearmanManager {
     protected $stop_time = 0;
 
     /**
+     * Maximum time a child can run while restarting the daemon
+     */
+    protected $child_stop_timeout = 60;
+
+    /**
      * The filename to log to
      */
     protected $log_file;
@@ -303,7 +308,7 @@ abstract class GearmanManager {
         }
 
 
-        if($this->stop_work && time() - $this->stop_time > 60){
+        if($this->stop_work && time() - $this->stop_time > $this->child_stop_timeout){
             $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
             $this->stop_children(SIGKILL);
         }
@@ -331,7 +336,7 @@ abstract class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z:t");
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -374,6 +379,10 @@ abstract class GearmanManager {
 
         if (isset($opts['x'])) {
             $this->config['max_worker_lifetime'] = (int)$opts['x'];
+        }
+
+        if (isset($opts['t'])) {
+            $this->config['child_stop_timeout'] = abs(intval($opts['t']));
         }
 
         if (isset($opts['r'])) {
@@ -529,6 +538,10 @@ abstract class GearmanManager {
         } else {
             $this->config['exclude'] = array();
         }
+
+        if (!empty($this->config['child_stop_timeout'])) {
+            $this->child_stop_timeout = abs(intval($this->config['child_stop_timeout']));
+		}
 
         /**
          * Debug option to dump the config and exit
@@ -1110,6 +1123,7 @@ abstract class GearmanManager {
         echo "  -w DIR         Directory where workers are located, defaults to ./workers. If you are using PECL, you can provide multiple directories separated by a comma.\n";
         echo "  -r NUMBER      Maximum job iterations per worker\n";
         echo "  -x SECONDS     Maximum seconds for a worker to live\n";
+        echo "  -t SECONDS     Maximum time a child can run while restarting the daemon\n";
         echo "  -Z             Parse the command line and config file then dump it to the screen and exit.\n";
         echo "\n";
         exit();
