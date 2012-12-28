@@ -859,12 +859,12 @@ abstract class GearmanManager {
 
         $timeouts = array();
         $default_timeout = ((isset($this->config['timeout'])) ?
-            $this->config['timeout'] : null);
+            (int) $this->config['timeout'] : null);
 
         // build up the list of worker timeouts
         foreach ($worker_list as $worker) {
             $timeouts[$worker] = ((isset($this->config['functions'][$worker]['timeout'])) ?
-                    $this->config['functions'][$worker]['timeout'] : $default_timeout);
+                    (int) $this->config['functions'][$worker]['timeout'] : $default_timeout);
         }
 
         $pid = pcntl_fork();
