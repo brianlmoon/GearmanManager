@@ -20,6 +20,7 @@ DAEMON=/usr/local/bin/gearman-manager
 PIDDIR=/var/run/gearman
 PIDFILE=${PIDDIR}/manager.pid
 LOGFILE=/var/log/gearman-manager.log
+ERRORFILE=/var/log/ayi/error.log
 CONFIGDIR=/etc/gearman-manager
 GEARMANUSER="gearmand"
 PARAMS="-c ${CONFIGDIR}/config.ini"
@@ -37,7 +38,7 @@ start() {
             -P $PIDFILE \
             -l $LOGFILE \
             -d \
-            $PARAMS
+            $PARAMS 2>> $ERRORFILE
         RETVAL=$?
         echo
         return $RETVAL
