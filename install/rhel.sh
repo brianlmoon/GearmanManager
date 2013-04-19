@@ -33,10 +33,9 @@ start() {
           mkdir ${PIDDIR}
           chown ${GEARMANUSER} ${PIDDIR}
         fi
-        daemon --pidfile=$PIDFILE $DAEMON \
+        daemon --pidfile=$PIDFILE --user=$GEARMANUSER $DAEMON \
             -P $PIDFILE \
             -l $LOGFILE \
-            -u $GEARMANUSER \
             -d \
             $PARAMS
         RETVAL=$?
