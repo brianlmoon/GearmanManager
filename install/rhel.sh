@@ -22,10 +22,12 @@ PIDFILE=${PIDDIR}/manager.pid
 LOGFILE=/var/log/gearman-manager.log
 ERRORFILE=/var/log/ayi/error.log
 CONFIGDIR=/etc/gearman-manager
-GEARMANUSER="gearmand"
+GEARMANUSER="syncuser"
 PARAMS="-c ${CONFIGDIR}/config.ini"
 
 RETVAL=0
+
+export DC_ENV=
 
 start() {
         echo -n $"Starting gearman-manager: "
@@ -34,7 +36,7 @@ start() {
           mkdir ${PIDDIR}
           chown ${GEARMANUSER} ${PIDDIR}
         fi
-        daemon --pidfile=$PIDFILE --user=$GEARMANUSER $DAEMON \
+        daemon --pidfile=$PIDFILE --user=$GEARMANUSER $DAEMON -vv \
             -P $PIDFILE \
             -l $LOGFILE \
             -d \
