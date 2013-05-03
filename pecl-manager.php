@@ -105,26 +105,23 @@ class GearmanPeclManager extends GearmanManager {
             $func = $job_name;
         }
 
-        if(empty($objects[$job_name]) && !function_exists($func) && !class_exists($func, false)){
-
-            if(!isset($this->functions[$job_name])){
-                $this->log("Function $func is not a registered job name");
-                return;
+        if(!isset($this->functions[$job_name])){
+            $this->log("Function $func is not a registered job name");
+            return;
+        }
+        if (empty($objects[$job_name])) {
+            if (!function_exists($func) && !class_exists($func)){
+                require_once $this->functions[$job_name]["path"];
             }
-
-            require_once $this->functions[$job_name]["path"];
-
-            if(class_exists($func) && method_exists($func, "run")){
-
-                $this->log("Creating a $func object", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                $objects[$job_name] = new $func();
-
-            } elseif(!function_exists($func)) {
-
-                $this->log("Function $func not found");
-                return;
+            if (!function_exists($func)){
+                if (class_exists($func) && method_exists($func, "run")){
+                    $this->log("Creating a $func object", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                    $objects[$job_name] = new $func();
+                } else {
+                    $this->log("function $job_name could not be loaded");
+                    return;
+                }
             }
-
         }
 
         $this->log("($h) Starting Job: $job_name", GearmanManager::LOG_LEVEL_WORKER_INFO);
@@ -217,6 +214,3 @@ class GearmanPeclManager extends GearmanManager {
 }
 
 $mgr = new GearmanPeclManager();
-
-?>
-
