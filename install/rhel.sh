@@ -27,7 +27,11 @@ PARAMS="-c ${CONFIGDIR}/config.ini"
 
 RETVAL=0
 
-export DC_ENV=
+if [[ -f /etc/ayi-dc-env ]]; then
+    export DC_ENV="$(cat /etc/ayi-dc-env)"
+else
+    export DC_ENV=
+fi
 
 start() {
         echo -n $"Starting gearman-manager: "
