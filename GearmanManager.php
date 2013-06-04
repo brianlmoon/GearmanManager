@@ -295,7 +295,8 @@ abstract class GearmanManager {
             if($exited) {
                 $worker = $this->children[$exited];
                 unset($this->children[$exited]);
-                $this->log("Child $exited exited ($worker)", GearmanManager::LOG_LEVEL_PROC_INFO);
+                $code = pcntl_wexitstatus($status);
+                $this->log("Child $exited exited with error code of $code ($worker)", GearmanManager::LOG_LEVEL_PROC_INFO);
                 if(!$this->stop_work){
                     $this->start_worker($worker);
                 }
