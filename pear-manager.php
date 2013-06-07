@@ -32,10 +32,11 @@ class GearmanPearManager extends GearmanManager {
      * Starts a worker for the PEAR library
      *
      * @param   array   $worker_list    List of worker functions to add
+     * @param   array   $timeouts       list of worker timeouts to pass to server
      * @return  void
      *
      */
-    protected function start_lib_worker($worker_list) {
+    protected function start_lib_worker($worker_list, $timeouts = array()) {
 
         /**
          * Require PEAR Net_Gearman libs
@@ -55,8 +56,9 @@ class GearmanPearManager extends GearmanManager {
         $worker = new Net_Gearman_Worker($this->servers);
 
         foreach($worker_list as $w){
-            $this->log("Adding job $w", GearmanManager::LOG_LEVEL_WORKER_INFO);
-            $worker->addAbility($w);
+            $timeout = (isset($timeouts[$w]) ? $timeouts[$w] : null);
+            $this->log("Adding job $w ; timeout: " . $timeout, GearmanManager::LOG_LEVEL_WORKER_INFO);
+            $worker->addAbility($w, $timeout);
         }
 
         $worker->attachCallback(array($this, 'job_start'), Net_Gearman_Worker::JOB_START);
