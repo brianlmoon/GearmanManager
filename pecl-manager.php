@@ -105,7 +105,7 @@ class GearmanPeclManager extends GearmanManager {
             $func = $job_name;
         }
 
-        if(empty($objects[$job_name]) && !function_exists($func) && !class_exists($func)){
+        if(empty($objects[$job_name]) && !function_exists($func) && !class_exists($func, false)){
 
             if(!isset($this->functions[$job_name])){
                 $this->log("Function $func is not a registered job name");
