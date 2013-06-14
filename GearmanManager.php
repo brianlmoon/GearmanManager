@@ -490,11 +490,9 @@ abstract class GearmanManager {
             $this->check_code = true;
         }
 
-        if(!empty($this->config['worker_dir'])){
-            $this->worker_dir = $this->config['worker_dir'];
-        } else {
-            $this->worker_dir = "./workers";
-        }
+        $this->worker_dir = empty($this->config['worker_dir'])
+            ? "./workers"
+            : $this->config['worker_dir'];
 
         $dirs = explode(",", $this->worker_dir);
         foreach($dirs as &$dir){
@@ -513,27 +511,21 @@ abstract class GearmanManager {
             $this->do_all_count = (int)$this->config['count'];
         }
 
+        $this->servers = array("127.0.0.1");
         if(!empty($this->config['host'])){
-            if(!is_array($this->config['host'])){
-                $this->servers = explode(",", $this->config['host']);
-            } else {
-                $this->servers = $this->config['host'];
-            }
-        } else {
-            $this->servers = array("127.0.0.1");
+            $this->servers = is_array($this->config['host'])
+                ? $this->config['host']
+                : explode(",", $this->config['host']);
         }
 
-        if (!empty($this->config['include']) && $this->config['include'] != "*") {
-            $this->config['include'] = explode(",", $this->config['include']);
-        } else {
-            $this->config['include'] = array();
-        }
+        $this->config['include'] = !empty($this->config['include']) && $this->config['include'] != "*"
+            ? explode(",", $this->config['include'])
+            : array();
 
-        if (!empty($this->config['exclude'])) {
-            $this->config['exclude'] = explode(",", $this->config['exclude']);
-        } else {
-            $this->config['exclude'] = array();
-        }
+        $this->config['exclude'] = empty($this->config['exclude'])
+            ? array()
+            : explode(",", $this->config['exclude']);
+        
 
         /**
          * Debug option to dump the config and exit
@@ -721,6 +713,7 @@ abstract class GearmanManager {
                 $this->helper_pid = $pid;
                 while($this->wait_for_signal && !$this->stop_work) {
                     usleep(5000);
+                    $status = null;
                     pcntl_waitpid($pid, $status, WNOHANG);
 
                     if (pcntl_wifexited($status) && $status) {
@@ -920,16 +913,10 @@ abstract class GearmanManager {
         $func_a = $this->functions[$a];
         $func_b = $this->functions[$b];
 
-        if(!isset($func_a["priority"])){
-            $func_a["priority"] = 0;
-        }
-        if(!isset($func_b["priority"])){
-            $func_b["priority"] = 0;
-        }
-        if ($func_a["priority"] == $func_b["priority"]) {
-            return 0;
-        }
-        return ($func_a["priority"] > $func_b["priority"]) ? -1 : 1;
+        $priority_a = empty($func_a["priority"]) ? 0 : $func_a["priority"];
+        $priority_b = empty($func_b["priority"]) ? 0 : $func_b["priority"];
+
+        return $priority_b - $priority_a;
     }
 
     /**
@@ -996,11 +983,8 @@ abstract class GearmanManager {
                     $this->stop_work = true;
                     $this->stop_time = time();
                     $term_count++;
-                    if($term_count < 5){
-                        $this->stop_children();
-                    } else {
-                        $this->stop_children(SIGKILL);
-                    }
+                    $stopSig = $term_count < 5 ? SIGTERM : SIGKILL;
+                    $this->stop_children($stopSig);
                     break;
                 case SIGHUP:
                     $this->log("Restarting children", GearmanManager::LOG_LEVEL_PROC_INFO);
@@ -1023,7 +1007,9 @@ abstract class GearmanManager {
 
         static $init = false;
 
-        if($level > $this->verbose) return;
+        if($level > $this->verbose) {
+            return;
+        }
 
         if ($this->log_syslog) {
             $this->syslog($message, $level);
@@ -1034,8 +1020,6 @@ abstract class GearmanManager {
             $init = true;
 
             if($this->log_file_handle){
-                list($ts, $ms) = explode(".", sprintf("%f", microtime(true)));
-                $ds = date("Y-m-d H:i:s").".".str_pad($ms, 6, 0);
                 fwrite($this->log_file_handle, "Date                         PID   Type   Message\n");
             } else {
                 echo "PID   Type   Message\n";
@@ -1067,7 +1051,7 @@ abstract class GearmanManager {
         $log_pid = str_pad($this->pid, 5, " ", STR_PAD_LEFT);
 
         if($this->log_file_handle){
-            list($ts, $ms) = explode(".", sprintf("%f", microtime(true)));
+            list($ms, $ts) = explode(' ',microtime());
             $ds = date("Y-m-d H:i:s").".".str_pad($ms, 6, 0);
             $prefix = "[$ds] $log_pid $label";
             fwrite($this->log_file_handle, $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n");
@@ -1083,14 +1067,14 @@ abstract class GearmanManager {
      */
     protected function syslog($message, $level) {
         switch($level) {
+            case GearmanManager::LOG_LEVEL_DEBUG:
+                $priority = LOG_DEBUG;
+                break;
             case GearmanManager::LOG_LEVEL_INFO;
             case GearmanManager::LOG_LEVEL_PROC_INFO:
             case GearmanManager::LOG_LEVEL_WORKER_INFO:
             default:
                 $priority = LOG_INFO;
-                break;
-            case GearmanManager::LOG_LEVEL_DEBUG:
-                $priority = LOG_DEBUG;
                 break;
         }
 
