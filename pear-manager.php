@@ -51,13 +51,19 @@ class GearmanPearManager extends GearmanManager {
             require "Net/Gearman/Job.php";
         }
 
-        require "Net/Gearman/Worker.php";
+        if(!class_exists("Net_Gearman_Worker")){
+            require "Net/Gearman/Worker.php";
+        }
 
         $worker = new Net_Gearman_Worker($this->servers);
 
         foreach($worker_list as $w){
             $timeout = (isset($timeouts[$w]) ? $timeouts[$w] : null);
-            $this->log("Adding job $w ; timeout: " . $timeout, GearmanManager::LOG_LEVEL_WORKER_INFO);
+            $message = "Adding job $w";
+            if($timeout){
+                $message.= "; timeout: $timeout";
+            }
+            $this->log($message, GearmanManager::LOG_LEVEL_WORKER_INFO);
             $worker->addAbility($w, $timeout);
         }
 
@@ -206,7 +212,9 @@ class GearmanPearManager extends GearmanManager {
          */
         foreach($this->functions as $name => $func){
             $class = NET_GEARMAN_JOB_CLASS_PREFIX.$name;
-            include $func['path'];
+            if(!class_exists($class)) {
+                include $func['path'];
+            }
             if(!class_exists($class) && !method_exists($class, "run")) {
                 $this->log("Class $class not found in {$func['path']} or run method not present");
                 posix_kill($this->pid, SIGUSR2);
