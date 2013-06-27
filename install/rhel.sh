@@ -84,7 +84,7 @@ case "$1" in
               ;;
             0)
               sleep $p
-              $s=$(($s + $p))
+              s=$(($s + $p))
               ;;
             *)
               break
