@@ -71,16 +71,35 @@ case "$1" in
         ;;
   restart|reload)
         stop
-        start
-        ;;
-  condrestart|try-restart)
-        if status -p $PIDFILE $DAEMON >&/dev/null; then
-                stop
-                start
+        echo -n "Waiting for $(basename "$DAEMON") to stop: "
+        s=0
+        p=2
+        ok=0
+        while [ $s -lt $((60 + $p)) ]; do
+          status="$(status -p $PIDFILE $DAEMON)"
+          case "$?" in
+            3)
+              ok=1
+              break
+              ;;
+            0)
+              sleep $p
+              s=$(($s + $p))
+              ;;
+            *)
+              break
+              ;;
+          esac
+        done
+        echo "$status"
+        if [ $ok -eq 1 ]; then
+            start
+        else
+          RETVAL=1
         fi
         ;;
   *)
-        echo $"Usage: $prog {start|stop|restart|reload|condrestart|status|help}"
+        echo $"Usage: $0 {start|stop|restart|status}"
         RETVAL=3
 esac
 
