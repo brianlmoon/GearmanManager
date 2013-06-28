@@ -530,7 +530,6 @@ abstract class GearmanManager {
 
         if(isset($this->config['worker_restart_splay']) && (int)$this->config['worker_restart_splay'] > 0){
             $this->worker_restart_splay = (int)$this->config['worker_restart_splay'];
-            $this->max_run_time = (int)rand($this->config['max_worker_lifetime'], $this->config['max_worker_lifetime'] + $this->config['worker_restart_splay']);
         }
 
         if(isset($this->config['count']) && (int)$this->config['count'] > 0){
@@ -900,6 +899,11 @@ abstract class GearmanManager {
 
                     // sort the shuffled array by priority
                     uasort($worker_list, array($this, "sort_priority"));
+                }
+
+                if($this->worker_restart_splay > 0){
+                    $this->max_run_time = (int)rand($this->config['max_worker_lifetime'], $this->config['max_worker_lifetime'] + $this->worker_restart_splay);
+                    $this->log("Adjusted max run time to $this->max_run_time seconds", GearmanManager::LOG_LEVEL_DEBUG);
                 }
 
                 $this->start_lib_worker($worker_list, $timeouts);
