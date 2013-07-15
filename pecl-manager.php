@@ -120,13 +120,11 @@ class GearmanPeclManager extends GearmanManager {
             if (is_callable($closure)) {
                 $this->log("Using a closure for $func", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $closures[$job_name] = $closure;
-            }
-            if(class_exists($func) && method_exists($func, "run")){
+            } elseif(class_exists($func) && method_exists($func, "run")){
                 $this->log("Creating a $func object", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $objects[$job_name] = new $func();
 
             } elseif(!function_exists($func)) {
-
                 $this->log("Function $func not found");
                 return;
             }
