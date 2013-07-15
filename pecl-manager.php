@@ -143,8 +143,7 @@ class GearmanPeclManager extends GearmanManager {
         if (isset($closures[$job_name])) {
             $this->log("($h) Calling closure for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $closures[$job_name]($job, $log);
-        }
-        if(isset($objects[$job_name])){
+        } elseif(isset($objects[$job_name])){
             $this->log("($h) Calling object for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $objects[$job_name]->run($job, $log);
         } elseif(function_exists($func)) {
