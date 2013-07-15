@@ -91,6 +91,7 @@ class GearmanPeclManager extends GearmanManager {
      */
     public function do_job($job) {
 
+        static $closures;
         static $objects;
 
         if($objects===null) $objects = array();
@@ -114,8 +115,11 @@ class GearmanPeclManager extends GearmanManager {
                 return;
             }
 
-            require_once $this->functions[$job_name]["path"];
+            $closure = require_once $this->functions[$job_name]["path"];
 
+            if (is_callable($closure)) {
+                $closures[$job_name] = $closure;
+            }
             if(class_exists($func) && method_exists($func, "run")){
 
                 $this->log("Creating a $func object", GearmanManager::LOG_LEVEL_WORKER_INFO);
@@ -138,6 +142,10 @@ class GearmanPeclManager extends GearmanManager {
         /**
          * Run the real function here
          */
+        if (isset($closures[$job_name])) {
+            $this->log("($h) Calling closure for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
+            $result = $closures[$job_name]($job, $log);
+        }
         if(isset($objects[$job_name])){
             $this->log("($h) Calling object for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $objects[$job_name]->run($job, $log);
@@ -145,7 +153,7 @@ class GearmanPeclManager extends GearmanManager {
             $this->log("($h) Calling function for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $func($job, $log);
         } else {
-            $this->log("($h) FAILED to find a function or class for $job_name.", GearmanManager::LOG_LEVEL_INFO);
+            $this->log("($h) FAILED to find a function, class or closure for $job_name.", GearmanManager::LOG_LEVEL_INFO);
         }
 
         if(!empty($log)){
