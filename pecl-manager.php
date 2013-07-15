@@ -212,9 +212,9 @@ class GearmanPeclManager extends GearmanManager {
     protected function validate_lib_workers() {
 
         foreach($this->functions as $func => $props){
-            require_once $props["path"];
+            $closure = require_once $props["path"];
             $real_func = $this->prefix.$func;
-            if(!function_exists($real_func) &&
+            if(!is_callable($closure) && !function_exists($real_func) &&
                (!class_exists($real_func) || !method_exists($real_func, "run"))){
                 $this->log("Function $real_func not found in ".$props["path"]);
                 posix_kill($this->pid, SIGUSR2);
