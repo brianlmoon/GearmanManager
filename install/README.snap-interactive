@@ -1,0 +1,5 @@
+To create SNAP package:
+- Ensure install-chroot.sh looks accurate
+- ./install-chroot.sh
+- cd ~/gearman-manager-chroot
+- fpm -s dir -t rpm -n gearman-manager -v YYYYMMDD .
