@@ -43,6 +43,11 @@ error_reporting(E_ALL | E_STRICT);
 abstract class GearmanManager {
 
     /**
+     * GearmanManager version
+     */
+    const VERSION = "1.0.0";
+
+    /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
      */
     const LOG_LEVEL_INFO = 1;
@@ -356,7 +361,11 @@ abstract class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z", "version");
+
+        if(isset($opts["version"])){
+            $this->show_version();
+        }
 
         if(isset($opts["H"])){
             $this->show_help();
@@ -1134,6 +1143,15 @@ abstract class GearmanManager {
         if (!syslog($priority, $message)) {
             echo "Unable to write to syslog\n";
         }
+    }
+
+    /**
+     * Show the script version
+     */
+    protected function show_version()
+    {
+        echo static::VERSION."\n";
+        exit();
     }
 
     /**
