@@ -987,6 +987,8 @@ abstract class GearmanManager {
      */
     protected function register_ticks($parent=true) {
 
+        register_tick_function('ob_flush');
+
         if($parent){
             $this->log("Registering signals for parent", GearmanManager::LOG_LEVEL_DEBUG);
             pcntl_signal(SIGTERM, array($this, "signal"));
