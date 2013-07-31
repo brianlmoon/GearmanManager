@@ -240,6 +240,14 @@ abstract class GearmanManager {
         $this->getopt();
 
         /**
+         * Redirect all output to log function
+         */
+        ob_start(function($buffer) {
+            $this->log($buffer, static::LOG_LEVEL_CRAZY);
+            return "";
+        });
+
+        /**
          * Register signal listeners
          */
         $this->register_ticks();
@@ -1084,7 +1092,7 @@ abstract class GearmanManager {
             if($this->log_file_handle){
                 fwrite($this->log_file_handle, "Date                         PID   Type   Message\n");
             } else {
-                echo "PID   Type   Message\n";
+                fwrite(STDOUT, "PID   Type   Message\n");
             }
 
         }
@@ -1119,7 +1127,7 @@ abstract class GearmanManager {
             fwrite($this->log_file_handle, $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n");
         } else {
             $prefix = "$log_pid $label";
-            echo $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n";
+            fwrite(STDOUT, $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n");
         }
 
     }
