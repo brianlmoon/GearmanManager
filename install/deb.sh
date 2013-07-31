@@ -19,7 +19,7 @@ PIDFILE=${PIDDIR}/manager.pid
 LOGFILE=/var/log/gearman-manager.log
 CONFIGDIR=/etc/gearman-manager
 GEARMANUSER="gearman"
-PARAMS="-c ${CONFIGDIR}/config.ini"
+PARAMS="-c ${CONFIGDIR}/config.ini -vvv"
 
 test -x ${DAEMON} || exit 0
 
