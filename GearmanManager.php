@@ -242,14 +242,7 @@ abstract class GearmanManager {
         /**
          * Redirect all output to log function
          */
-        $manager = $this;
-        ob_start(function($buffer) use($manager) {
-            $buffer = trim($buffer);
-            if (strlen($buffer) > 0) {
-                $manager->log($buffer, static::LOG_LEVEL_CRAZY);
-            }
-            return "";
-        });
+        ob_start(array($this, 'output_logger'));
 
         /**
          * Register signal listeners
@@ -1076,6 +1069,18 @@ abstract class GearmanManager {
             }
         }
 
+    }
+
+    /**
+     * Function to log all output to log function
+     */
+    protected function output_logger($buffer)
+    {
+        $buffer = trim($buffer);
+        if (strlen($buffer) > 0) {
+            $this->log($buffer, static::LOG_LEVEL_CRAZY);
+        }
+        return "";
     }
 
     /**
