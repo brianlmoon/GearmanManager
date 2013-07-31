@@ -242,10 +242,11 @@ abstract class GearmanManager {
         /**
          * Redirect all output to log function
          */
-        ob_start(function($buffer) use($this) {
+        $manager = $this;
+        ob_start(function($buffer) use($manager) {
             $buffer = trim($buffer);
             if (strlen($buffer) > 0) {
-                $this->log($buffer, static::LOG_LEVEL_CRAZY);
+                $manager->log($buffer, static::LOG_LEVEL_CRAZY);
             }
             return "";
         });
