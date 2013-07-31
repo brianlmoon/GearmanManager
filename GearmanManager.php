@@ -381,7 +381,7 @@ abstract class GearmanManager {
         }
 
         if(isset($opts["l"])){
-            $this->log_file = $opts["l"];
+            $this->config['log_file'] = $opts["l"];
         }
 
         if (isset($opts['a'])) {
@@ -1047,9 +1047,9 @@ abstract class GearmanManager {
                 fclose($this->log_file_handle);
             }
 
-            $this->log_file_handle = @fopen($this->config['log_file'], "a");
+            $this->log_file_handle = @fopen($this->log_file, "a");
             if(!$this->log_file_handle){
-                $this->show_help("Could not open log file {$this->config['log_file']}");
+                $this->show_help("Could not open log file {$this->log_file}");
             }
         }
 
