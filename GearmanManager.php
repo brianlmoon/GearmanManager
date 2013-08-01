@@ -1276,19 +1276,20 @@ abstract class GearmanManager {
         }
         echo "Gearman worker manager script\n\n";
         echo "USAGE:\n";
-        echo "  # ".basename(__FILE__)." -h | -c CONFIG [-v] [-l LOG_FILE] [-d] [-v] [-a] [-P PID_FILE]\n\n";
+        echo "  # ".basename(__FILE__)." -H | --help | -V | --version | -c CONFIG [-v] [-l LOG_FILE] [-d] [-v] [-a] [-P PID_FILE]\n\n";
         echo "OPTIONS:\n";
         echo "  -a             Automatically check for new worker code\n";
         echo "  -c CONFIG      Worker configuration file\n";
         echo "  -d             Daemon, detach and run in the background\n";
         echo "  -D NUMBER      Start NUMBER workers that do all jobs\n";
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
-        echo "  -H             Shows this help\n";
+        echo "  -H | --help    Shows this help\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
         echo "  -p PREFIX      Optional prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
+        echo "  -V | --version Display the version number\n";
         echo "  -w DIR         Directory where workers are located, defaults to ./workers. If you are using PECL, you can provide multiple directories separated by a comma.\n";
         echo "  -r NUMBER      Maximum job iterations per worker\n";
         echo "  -t SECONDS     Maximum number of seconds gearmand server should wait for a worker to complete work before timing out and reissuing work to another worker.\n";
