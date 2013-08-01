@@ -1009,7 +1009,8 @@ abstract class GearmanManager {
      * Error handler to log all php errors
      */
     public function error_handler($errno, $errstr, $errfile = '', $errline = 0, array $errcontext = array()) {
-        if (($this->error_reporting | $errno) != $this->error_reporting) {
+        $errorReporting = ini_get('error_reporting');
+        if (($errorReporting | $errno) != $errorReporting) {
             return true;
         }
 
