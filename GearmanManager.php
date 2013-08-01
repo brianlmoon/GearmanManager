@@ -1057,7 +1057,7 @@ abstract class GearmanManager {
      */
     protected function register_error_handlers() {
         register_shutdown_function(array($this, 'shutdown_function'));
-        error_handler(array($this, 'error_handler'));
+        set_error_handler(array($this, 'error_handler'));
     }
 
     /**
