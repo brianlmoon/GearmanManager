@@ -69,6 +69,11 @@ abstract class GearmanManager {
     const MAX_PRIORITY = 5;
 
     /**
+     * Holds the php error_reporting ini setting
+     */
+    protected $error_reporting;
+
+    /**
      * Holds the worker configuration
      */
     protected $config = array();
@@ -224,6 +229,8 @@ abstract class GearmanManager {
      *
      */
     public function __construct() {
+
+        $this->error_reporting = ini_get('error_reporting');
 
         if(!function_exists("posix_kill")){
             $this->show_help("The function posix_kill was not found. Please ensure POSIX functions are installed");
@@ -737,6 +744,7 @@ abstract class GearmanManager {
                 $this->isparent = false;
                 $this->parent_pid = $this->pid;
                 $this->pid = getmypid();
+                error_reporting($this->error_reporting);
                 $this->$method();
                 break;
             case -1:
@@ -912,6 +920,8 @@ abstract class GearmanManager {
 
                 $this->pid = getmypid();
 
+                error_reporting($this->error_reporting);
+
                 if(count($worker_list) > 1){
 
                     // shuffle the list to avoid queue preference
@@ -999,8 +1009,7 @@ abstract class GearmanManager {
      * Error handler to log all php errors
      */
     public function error_handler($errno, $errstr, $errfile = '', $errline = 0, array $errcontext = array()) {
-        $errorReporting = ini_get('error_reporting');
-        if (($errorReporting | $errno) != $errorReporting) {
+        if (($this->error_reporting | $errno) != $this->error_reporting) {
             return true;
         }
 
