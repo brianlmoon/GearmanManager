@@ -1074,7 +1074,7 @@ abstract class GearmanManager {
     /**
      * Function to log all output to log function
      */
-    protected function output_logger($buffer)
+    public function output_logger($buffer)
     {
         $buffer = trim($buffer);
         if (strlen($buffer) > 0) {
