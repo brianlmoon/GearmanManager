@@ -379,13 +379,13 @@ abstract class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::Vw:r:x:Z", array("version"));
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::Vw:r:x:Z", array("version", "help"));
 
         if(isset($opts["V"]) || isset($opts["version"])){
             $this->show_version();
         }
 
-        if(isset($opts["H"])){
+        if(isset($opts["H"]) || isset($opts["help"])){
             $this->show_help();
         }
 
