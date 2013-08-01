@@ -45,7 +45,7 @@ abstract class GearmanManager {
     /**
      * GearmanManager version
      */
-    const VERSION = "1.0.0";
+    const VERSION = "1.0.1";
 
     /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
