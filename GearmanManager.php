@@ -50,6 +50,7 @@ abstract class GearmanManager {
     /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
      */
+    const LOG_LEVEL_ERROR = 0;
     const LOG_LEVEL_INFO = 1;
     const LOG_LEVEL_PROC_INFO = 2;
     const LOG_LEVEL_WORKER_INFO = 3;
@@ -243,6 +244,11 @@ abstract class GearmanManager {
          * Redirect all output to log function
          */
         ob_start(array($this, 'output_logger'));
+
+        /**
+         * Register error handlers
+         */
+        $this->register_error_handlers();
 
         /**
          * Register signal listeners
@@ -977,6 +983,81 @@ abstract class GearmanManager {
             posix_kill($pid, $signal);
         }
 
+    }
+
+    /**
+     * Shutdown function to check if we had a FATAL error
+     */
+    public function shutdown_function() {
+        $error = error_get_last();
+        if ($error['type'] == E_ERROR) {
+            $this->error_handler($error['type'], $error['message'], $error['file'], $error['line']);
+        }
+    }
+
+    /**
+     * Error handler to log all php errors
+     */
+    public function error_handler($errno, $errstr, $errfile = '', $errline = 0, array $errcontext = array()) {
+        $errorReporting = ini_get('error_reporting');
+        if (($errorReporting | $errno) != $errorReporting) {
+            return true;
+        }
+
+        $exit = false;
+        $level = 'PHP Unknown error';
+
+        switch ($errno) {
+            case E_ERROR:
+            case E_PARSE:
+            case E_CORE_ERROR:
+            case E_COMPILE_ERROR:
+            case E_USER_ERROR:
+            case E_RECOVERABLE_ERROR:
+                $exit = 255;
+                $level = 'PHP Fatal error';
+                break;
+
+            case E_WARNING:
+            case E_CORE_WARNING:
+            case E_COMPILE_WARNING:
+            case E_USER_WARNING:
+                $level = 'PHP Warning';
+                break;
+
+            case E_NOTICE:
+            case E_USER_NOTICE:
+                $level = 'PHP Notice';
+                break;
+
+            case E_STRICT:
+                $level = 'PHP Strict';
+                break;
+
+            case E_DEPRECATED:
+            case E_USER_DEPRECATED:
+                $level = 'PHP Deprecated';
+                break;
+        }
+
+        $this->log(
+            $level . ': ' . $errstr. (strlen($errfile) > 0 ? ' in ' . $errfile . ' on line ' . $errline  : ''),
+            static::LOG_LEVEL_ERROR
+        );
+
+        if ($exit !== false) {
+            exit($exit);
+        }
+
+        return true;
+    }
+
+    /**
+     * Registers error handlers
+     */
+    protected function register_error_handlers() {
+        register_shutdown_function(array($this, 'shutdown_function'));
+        error_handler(array($this, 'error_handler'));
     }
 
     /**
