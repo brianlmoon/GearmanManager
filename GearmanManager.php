@@ -1192,6 +1192,9 @@ abstract class GearmanManager {
         $label = "";
 
         switch($level) {
+            case GearmanManager::LOG_LEVEL_ERROR:
+                $label = "ERROR ";
+                break;
             case GearmanManager::LOG_LEVEL_INFO;
                 $label = "INFO  ";
                 break;
