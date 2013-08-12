@@ -878,7 +878,7 @@ abstract class GearmanManager {
 
         // build up the list of worker timeouts
         foreach ($worker_list as $worker_name) {
-            $timeouts[$worker] = ((isset($this->config['functions'][$worker_name]['timeout'])) ?
+            $timeouts[$worker_name] = ((isset($this->config['functions'][$worker_name]['timeout'])) ?
                                     (int) $this->config['functions'][$worker_name]['timeout'] : $default_timeout);
         }
 
