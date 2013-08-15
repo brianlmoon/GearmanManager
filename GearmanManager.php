@@ -45,7 +45,7 @@ abstract class GearmanManager {
     /**
      * GearmanManager version
      */
-    const VERSION = "1.0.1";
+    const VERSION = "1.0.4";
 
     /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
@@ -1054,9 +1054,10 @@ abstract class GearmanManager {
             static::LOG_LEVEL_ERROR
         );
 
-        if ($exit !== false) {
-            exit($exit);
-        }
+        // Comment: These lines have been disabled to enable additional shutdown functions use
+        //if ($exit !== false) {
+        //    exit($exit);
+        //}
 
         return true;
     }
