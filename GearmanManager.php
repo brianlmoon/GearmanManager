@@ -1054,9 +1054,10 @@ abstract class GearmanManager {
             static::LOG_LEVEL_ERROR
         );
 
-        if ($exit !== false) {
-            exit($exit);
-        }
+        // Comment: These lines have been disabled to enable additional shutdown functions use
+        //if ($exit !== false) {
+        //    exit($exit);
+        //}
 
         return true;
     }
