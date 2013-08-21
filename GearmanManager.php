@@ -591,18 +591,48 @@ abstract class GearmanManager {
             $this->show_help("No configuration found in $file");
         }
 
+        //load defaults for all hosts and all workers
         if (isset($gearman_config[self::DEFAULT_CONFIG])) {
             $this->config = $gearman_config[self::DEFAULT_CONFIG];
             $this->config['functions'] = array();
         }
 
-        foreach($gearman_config as $function=>$data){
-
-            if (strcasecmp($function, self::DEFAULT_CONFIG) != 0) {
+        //load defaults for each worker for all hosts
+        foreach ($gearman_config as $function=>$data) {
+            if (strcasecmp($function, self::DEFAULT_CONFIG) != 0 AND strpos($function,":")===false) {
                 $this->config['functions'][$function] = $data;
             }
-
         }
+
+        $hostname = gethostname();
+
+        //load host specific settings for all workers
+        if (isset($gearman_config[$hostname.":".self::DEFAULT_CONFIG])) {
+            foreach ($gearman_config[$hostname.":".self::DEFAULT_CONFIG] as $key => $value) {
+                $this->config[$key] = $value;
+            }
+        }
+
+        //load host specific settings for workers
+        foreach ($gearman_config as $section_name=>$data) {
+            //if DEFAULT_CONFIG string is found in section name, skip
+            if (strpos($section_name, self::DEFAULT_CONFIG) !== false){
+                continue;
+            }
+            //If hostname delimiter ":" is not found in section name, skip
+            if (strpos($section_name,":") === false){
+                continue;
+            }
+            //If we end up here, the section name has a hostname defined
+            list($function_hostname,$section_name)=explode(":",$section_name);
+
+            //Only load section name that belongs to current hostname
+            if ($function_hostname != $hostname){
+                continue;
+            }
+            $this->config['functions'][$section_name] = $data;
+        }
+
 
     }
 
