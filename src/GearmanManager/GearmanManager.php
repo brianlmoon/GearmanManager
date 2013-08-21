@@ -383,7 +383,7 @@ abstract class GearmanManager {
         }
 
         if(isset($opts["l"])){
-            $this->log_file = $opts["l"];
+            $this->config['log_file'] = $opts["l"];
         }
 
         if (isset($opts['a'])) {
