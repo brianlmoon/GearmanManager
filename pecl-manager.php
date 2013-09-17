@@ -50,20 +50,6 @@ class GearmanPeclManager extends GearmanManager {
 
         while(!$this->stop_work){
 
-            if(@$thisWorker->work() ||
-               $thisWorker->returnCode() == GEARMAN_IO_WAIT ||
-               $thisWorker->returnCode() == GEARMAN_NO_JOBS) {
-
-                if ($thisWorker->returnCode() == GEARMAN_SUCCESS) continue;
-
-                if (!@$thisWorker->wait()){
-                    if ($thisWorker->returnCode() == GEARMAN_NO_ACTIVE_FDS){
-                        sleep(5);
-                    }
-                }
-
-            }
-
             /**
              * Check the running time of the current child. If it has
              * been too long, stop working.
@@ -76,6 +62,20 @@ class GearmanPeclManager extends GearmanManager {
             if(!empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
                 $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $this->stop_work = true;
+            }
+
+            if(@$thisWorker->work() ||
+               $thisWorker->returnCode() == GEARMAN_IO_WAIT ||
+               $thisWorker->returnCode() == GEARMAN_NO_JOBS) {
+
+                if ($thisWorker->returnCode() == GEARMAN_SUCCESS) continue;
+
+                if (!@$thisWorker->wait()){
+                    if ($thisWorker->returnCode() == GEARMAN_NO_ACTIVE_FDS){
+                        sleep(5);
+                    }
+                }
+
             }
 
         }
@@ -91,6 +91,7 @@ class GearmanPeclManager extends GearmanManager {
      */
     public function do_job($job) {
 
+        static $closures;
         static $objects;
 
         if($objects===null) $objects = array();
@@ -107,22 +108,23 @@ class GearmanPeclManager extends GearmanManager {
             $func = $job_name;
         }
 
-        if(empty($objects[$job_name]) && !function_exists($func) && !class_exists($func, false)){
+        if(empty($closures[$job_name]) && empty($objects[$job_name]) && !function_exists($func) && !class_exists($func, false)){
 
             if(!isset($this->functions[$job_name])){
                 $this->log("Function $func is not a registered job name");
                 return;
             }
 
-            require_once $this->functions[$job_name]["path"];
+            $closure = require_once $this->functions[$job_name]["path"];
 
-            if(class_exists($func) && method_exists($func, "run")){
-
+            if (is_callable($closure)) {
+                $this->log("Using a closure for $func", GearmanManager::LOG_LEVEL_WORKER_INFO);
+                $closures[$job_name] = $closure;
+            } elseif(class_exists($func) && method_exists($func, "run")){
                 $this->log("Creating a $func object", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $objects[$job_name] = new $func();
 
             } elseif(!function_exists($func)) {
-
                 $this->log("Function $func not found");
                 return;
             }
@@ -138,14 +140,17 @@ class GearmanPeclManager extends GearmanManager {
         /**
          * Run the real function here
          */
-        if(isset($objects[$job_name])){
+        if (isset($closures[$job_name])) {
+            $this->log("($h) Calling closure for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
+            $result = $closures[$job_name]($job, $log);
+        } elseif(isset($objects[$job_name])){
             $this->log("($h) Calling object for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $objects[$job_name]->run($job, $log);
         } elseif(function_exists($func)) {
             $this->log("($h) Calling function for $job_name.", GearmanManager::LOG_LEVEL_DEBUG);
             $result = $func($job, $log);
         } else {
-            $this->log("($h) FAILED to find a function or class for $job_name.", GearmanManager::LOG_LEVEL_INFO);
+            $this->log("($h) FAILED to find a function, class or closure for $job_name.", GearmanManager::LOG_LEVEL_INFO);
         }
 
         if(!empty($log)){
@@ -204,9 +209,9 @@ class GearmanPeclManager extends GearmanManager {
     protected function validate_lib_workers() {
 
         foreach($this->functions as $func => $props){
-            require_once $props["path"];
+            $closure = require_once $props["path"];
             $real_func = $this->prefix.$func;
-            if(!function_exists($real_func) &&
+            if(!is_callable($closure) && !function_exists($real_func) &&
                (!class_exists($real_func) || !method_exists($real_func, "run"))){
                 $this->log("Function $real_func not found in ".$props["path"]);
                 posix_kill($this->pid, SIGUSR2);

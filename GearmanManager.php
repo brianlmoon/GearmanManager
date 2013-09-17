@@ -43,8 +43,14 @@ error_reporting(E_ALL | E_STRICT);
 abstract class GearmanManager {
 
     /**
+     * GearmanManager version
+     */
+    const VERSION = "1.0.4";
+
+    /**
      * Log levels can be enabled from the command line with -v, -vv, -vvv
      */
+    const LOG_LEVEL_ERROR = 0;
     const LOG_LEVEL_INFO = 1;
     const LOG_LEVEL_PROC_INFO = 2;
     const LOG_LEVEL_WORKER_INFO = 3;
@@ -61,6 +67,11 @@ abstract class GearmanManager {
      */
     const MIN_PRIORITY = -5;
     const MAX_PRIORITY = 5;
+
+    /**
+     * Holds the php error_reporting ini setting
+     */
+    protected $error_reporting;
 
     /**
      * Holds the worker configuration
@@ -219,6 +230,8 @@ abstract class GearmanManager {
      */
     public function __construct() {
 
+        $this->error_reporting = ini_get('error_reporting');
+
         if(!function_exists("posix_kill")){
             $this->show_help("The function posix_kill was not found. Please ensure POSIX functions are installed");
         }
@@ -233,6 +246,16 @@ abstract class GearmanManager {
          * Parse command line options. Loads the config file as well
          */
         $this->getopt();
+
+        /**
+         * Redirect all output to log function
+         */
+        ob_start(array($this, 'output_logger'));
+
+        /**
+         * Register error handlers
+         */
+        $this->register_error_handlers();
 
         /**
          * Register signal listeners
@@ -355,9 +378,13 @@ abstract class GearmanManager {
      */
     protected function getopt() {
 
-        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::Vw:r:x:Z", array("version", "help"));
 
-        if(isset($opts["H"])){
+        if(isset($opts["V"]) || isset($opts["version"])){
+            $this->show_version();
+        }
+
+        if(isset($opts["H"]) || isset($opts["help"])){
             $this->show_help();
         }
 
@@ -380,7 +407,7 @@ abstract class GearmanManager {
         }
 
         if(isset($opts["l"])){
-            $this->log_file = $opts["l"];
+            $this->config['log_file'] = $opts["l"];
         }
 
         if (isset($opts['a'])) {
@@ -716,6 +743,7 @@ abstract class GearmanManager {
                 $this->isparent = false;
                 $this->parent_pid = $this->pid;
                 $this->pid = getmypid();
+                error_reporting($this->error_reporting);
                 $this->$method();
                 break;
             case -1:
@@ -891,6 +919,8 @@ abstract class GearmanManager {
 
                 $this->pid = getmypid();
 
+                error_reporting($this->error_reporting);
+
                 if(count($worker_list) > 1){
 
                     // shuffle the list to avoid queue preference
@@ -965,9 +995,87 @@ abstract class GearmanManager {
     }
 
     /**
+     * Shutdown function to check if we had a FATAL error
+     */
+    public function shutdown_function() {
+        $error = error_get_last();
+        if ($error['type'] == E_ERROR) {
+            $this->error_handler($error['type'], $error['message'], $error['file'], $error['line']);
+        }
+    }
+
+    /**
+     * Error handler to log all php errors
+     */
+    public function error_handler($errno, $errstr, $errfile = '', $errline = 0, array $errcontext = array()) {
+        $errorReporting = ini_get('error_reporting');
+        if (($errorReporting | $errno) != $errorReporting) {
+            return true;
+        }
+
+        $exit = false;
+        $level = 'PHP Unknown error';
+
+        switch ($errno) {
+            case E_ERROR:
+            case E_PARSE:
+            case E_CORE_ERROR:
+            case E_COMPILE_ERROR:
+            case E_USER_ERROR:
+            case E_RECOVERABLE_ERROR:
+                $exit = 255;
+                $level = 'PHP Fatal error';
+                break;
+
+            case E_WARNING:
+            case E_CORE_WARNING:
+            case E_COMPILE_WARNING:
+            case E_USER_WARNING:
+                $level = 'PHP Warning';
+                break;
+
+            case E_NOTICE:
+            case E_USER_NOTICE:
+                $level = 'PHP Notice';
+                break;
+
+            case E_STRICT:
+                $level = 'PHP Strict';
+                break;
+
+            case E_DEPRECATED:
+            case E_USER_DEPRECATED:
+                $level = 'PHP Deprecated';
+                break;
+        }
+
+        $this->log(
+            $level . ': ' . $errstr. (strlen($errfile) > 0 ? ' in ' . $errfile . ' on line ' . $errline  : ''),
+            static::LOG_LEVEL_ERROR
+        );
+
+        // Comment: These lines have been disabled to enable additional shutdown functions use
+        //if ($exit !== false) {
+        //    exit($exit);
+        //}
+
+        return true;
+    }
+
+    /**
+     * Registers error handlers
+     */
+    protected function register_error_handlers() {
+        register_shutdown_function(array($this, 'shutdown_function'));
+        set_error_handler(array($this, 'error_handler'));
+    }
+
+    /**
      * Registers the process signal listeners
      */
     protected function register_ticks($parent=true) {
+
+        register_tick_function('ob_flush');
 
         if($parent){
             $this->log("Registering signals for parent", GearmanManager::LOG_LEVEL_DEBUG);
@@ -1046,12 +1154,24 @@ abstract class GearmanManager {
                 fclose($this->log_file_handle);
             }
 
-            $this->log_file_handle = @fopen($this->config['log_file'], "a");
+            $this->log_file_handle = @fopen($this->log_file, "a");
             if(!$this->log_file_handle){
-                $this->show_help("Could not open log file {$this->config['log_file']}");
+                $this->show_help("Could not open log file {$this->log_file}");
             }
         }
 
+    }
+
+    /**
+     * Function to log all output to log function
+     */
+    public function output_logger($buffer)
+    {
+        $buffer = trim($buffer);
+        if (strlen($buffer) > 0) {
+            $this->log($buffer, static::LOG_LEVEL_CRAZY);
+        }
+        return "";
     }
 
     /**
@@ -1074,7 +1194,7 @@ abstract class GearmanManager {
             if($this->log_file_handle){
                 fwrite($this->log_file_handle, "Date                         PID   Type   Message\n");
             } else {
-                echo "PID   Type   Message\n";
+                fwrite(STDOUT, "PID   Type   Message\n");
             }
 
         }
@@ -1082,6 +1202,9 @@ abstract class GearmanManager {
         $label = "";
 
         switch($level) {
+            case GearmanManager::LOG_LEVEL_ERROR:
+                $label = "ERROR ";
+                break;
             case GearmanManager::LOG_LEVEL_INFO;
                 $label = "INFO  ";
                 break;
@@ -1109,7 +1232,7 @@ abstract class GearmanManager {
             fwrite($this->log_file_handle, $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n");
         } else {
             $prefix = "$log_pid $label";
-            echo $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n";
+            fwrite(STDOUT, $prefix." ".str_replace("\n", "\n$prefix ", trim($message))."\n");
         }
 
     }
@@ -1136,6 +1259,15 @@ abstract class GearmanManager {
     }
 
     /**
+     * Show the script version
+     */
+    protected function show_version()
+    {
+        echo static::VERSION."\n";
+        exit();
+    }
+
+    /**
      * Shows the scripts help info with optional error message
      */
     protected function show_help($msg = "") {
@@ -1145,19 +1277,20 @@ abstract class GearmanManager {
         }
         echo "Gearman worker manager script\n\n";
         echo "USAGE:\n";
-        echo "  # ".basename(__FILE__)." -h | -c CONFIG [-v] [-l LOG_FILE] [-d] [-v] [-a] [-P PID_FILE]\n\n";
+        echo "  # ".basename(__FILE__)." -H | --help | -V | --version | -c CONFIG [-v] [-l LOG_FILE] [-d] [-v] [-a] [-P PID_FILE]\n\n";
         echo "OPTIONS:\n";
         echo "  -a             Automatically check for new worker code\n";
         echo "  -c CONFIG      Worker configuration file\n";
         echo "  -d             Daemon, detach and run in the background\n";
         echo "  -D NUMBER      Start NUMBER workers that do all jobs\n";
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
-        echo "  -H             Shows this help\n";
+        echo "  -H | --help    Shows this help\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
         echo "  -p PREFIX      Optional prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -u USERNAME    Run wokers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
+        echo "  -V | --version Display the version number\n";
         echo "  -w DIR         Directory where workers are located, defaults to ./workers. If you are using PECL, you can provide multiple directories separated by a comma.\n";
         echo "  -r NUMBER      Maximum job iterations per worker\n";
         echo "  -t SECONDS     Maximum number of seconds gearmand server should wait for a worker to complete work before timing out and reissuing work to another worker.\n";

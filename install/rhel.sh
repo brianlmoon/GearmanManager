@@ -22,7 +22,7 @@ PIDFILE=${PIDDIR}/manager.pid
 LOGFILE=/var/log/gearman-manager.log
 CONFIGDIR=/etc/gearman-manager
 GEARMANUSER="gearmand"
-PARAMS="-c ${CONFIGDIR}/config.ini"
+PARAMS="-c ${CONFIGDIR}/config.ini -vvv"
 
 RETVAL=0
 
