@@ -681,6 +681,15 @@ abstract class GearmanManager {
                     $this->functions[$function]['path'] = $file;
 
                     /**
+                     * Override "global" prefix, if it exists in a subarea.
+                     * Need to use array_key_exists, because global prefix could
+                     * be overriden with empty
+                     */
+                    if(array_key_exists('prefix', $this->config['functions'][$function])) {
+                        $this->functions[$function]['prefix'] =  $this->config['functions'][$function]['prefix'];
+                    }
+
+                    /**
                      * Note about priority. This exploits an undocumented feature
                      * of the gearman daemon. This will only work as long as the
                      * current behavior of the daemon remains the same. It is not
