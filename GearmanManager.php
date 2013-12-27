@@ -514,7 +514,7 @@ abstract class GearmanManager {
             $this->worker_dir = "./workers";
         }
 
-        $dirs = explode(",", $this->worker_dir);
+        $dirs = is_array($this->worker_dir) ? $this->worker_dir : explode(",", $this->worker_dir);
         foreach($dirs as &$dir){
             $dir = trim($dir);
             if(!file_exists($dir)){
@@ -615,7 +615,7 @@ abstract class GearmanManager {
 
         $this->functions = array();
 
-        $dirs = explode(",", $this->worker_dir);
+        $dirs = is_array($this->worker_dir) ? $this->worker_dir : explode(",", $this->worker_dir);
 
         foreach($dirs as $dir){
 
