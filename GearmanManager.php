@@ -525,6 +525,8 @@ abstract class GearmanManager {
 
         if(isset($this->config['max_worker_lifetime']) && (int)$this->config['max_worker_lifetime'] > 0){
             $this->max_run_time = (int)$this->config['max_worker_lifetime'];
+        } else {
+            $this->config['max_worker_lifetime'] = $this->max_run_time;
         }
 
         if(isset($this->config['worker_restart_splay']) && (int)$this->config['worker_restart_splay'] > 0){
