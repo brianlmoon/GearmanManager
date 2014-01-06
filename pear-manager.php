@@ -212,7 +212,7 @@ class GearmanPearManager extends GearmanManager {
          */
         foreach($this->functions as $name => $func){
             $class = NET_GEARMAN_JOB_CLASS_PREFIX.$name;
-            if(!class_exists($class)) {
+            if(!class_exists($class, false)) {
                 include $func['path'];
             }
             if(!class_exists($class) && !method_exists($class, "run")) {
