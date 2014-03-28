@@ -110,7 +110,12 @@ class GearmanPeclManager extends GearmanManager {
 
         $job_name = $job->functionName();
 
-        if($this->prefix){
+        /**
+         * Precedence from local prefix
+         */
+        if(isset($this->functions[$job_name]) && array_key_exists('prefix', $this->functions[$job_name])) {
+            $func = $this->functions[$job_name]['prefix'].$job_name;
+        } elseif($this->prefix) {
             $func = $this->prefix.$job_name;
         } else {
             $func = $job_name;
@@ -215,6 +220,9 @@ class GearmanPeclManager extends GearmanManager {
         foreach($this->functions as $func => $props){
             require_once $props["path"];
             $real_func = $this->prefix.$func;
+            if(array_key_exists('prefix', $props)) {
+                $real_func = $props['prefix'].$func;
+            }
             if(!function_exists($real_func) &&
                (!class_exists($real_func) || !method_exists($real_func, "run"))){
                 $this->log("Function $real_func not found in ".$props["path"]);
