@@ -380,7 +380,7 @@ abstract class GearmanManager {
         }
 
         if(isset($opts["l"])){
-            $this->log_file = $opts["l"];
+            $this->config['log_file'] = $opts["l"];
         }
 
         if (isset($opts['a'])) {
@@ -514,7 +514,7 @@ abstract class GearmanManager {
             $this->worker_dir = "./workers";
         }
 
-        $dirs = explode(",", $this->worker_dir);
+        $dirs = is_array($this->worker_dir) ? $this->worker_dir : explode(",", $this->worker_dir);
         foreach($dirs as &$dir){
             $dir = trim($dir);
             if(!file_exists($dir)){
@@ -525,6 +525,8 @@ abstract class GearmanManager {
 
         if(isset($this->config['max_worker_lifetime']) && (int)$this->config['max_worker_lifetime'] > 0){
             $this->max_run_time = (int)$this->config['max_worker_lifetime'];
+        } else {
+            $this->config['max_worker_lifetime'] = $this->max_run_time;
         }
 
         if(isset($this->config['worker_restart_splay']) && (int)$this->config['worker_restart_splay'] > 0){
@@ -615,7 +617,7 @@ abstract class GearmanManager {
 
         $this->functions = array();
 
-        $dirs = explode(",", $this->worker_dir);
+        $dirs = is_array($this->worker_dir) ? $this->worker_dir : explode(",", $this->worker_dir);
 
         foreach($dirs as $dir){
 
