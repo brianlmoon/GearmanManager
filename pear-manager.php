@@ -14,5 +14,6 @@ declare(ticks = 1);
 
 require dirname(__FILE__) . "/GearmanManager.php";
 require dirname(__FILE__) . "/GearmanPearManager.php";
+
 $mgr = new GearmanPearManager();
 $mgr->run();
