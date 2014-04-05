@@ -213,11 +213,17 @@ abstract class GearmanManager {
      */
     protected $prefix = "";
 
+    public function __construct($config = null)
+    {
+        $this->getopt($config);
+        $this->pid = getmypid();
+    }
+
     /**
      * Creates the manager and gets things going
      *
      */
-    public function __construct() {
+    public function run($config = null) {
 
         if(!function_exists("posix_kill")){
             $this->show_help("The function posix_kill was not found. Please ensure POSIX functions are installed");
@@ -227,12 +233,12 @@ abstract class GearmanManager {
             $this->show_help("The function pcntl_fork was not found. Please ensure Process Control functions are installed");
         }
 
-        $this->pid = getmypid();
-
-        /**
-         * Parse command line options. Loads the config file as well
-         */
-        $this->getopt();
+        if ( ! empty($config)) {
+            /**
+             * Parse command line options. Loads the config file as well
+             */
+            $this->getopt($config);
+        }
 
         /**
          * Register signal listeners
@@ -353,24 +359,44 @@ abstract class GearmanManager {
      * Parses the command line options
      *
      */
-    protected function getopt() {
+    protected function getopt($config = array()) {
 
-        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
+        if (empty($config)) {
+            $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
 
-        if(isset($opts["H"])){
-            $this->show_help();
+            if(isset($opts["H"])){
+                $this->show_help();
+            }
+
+            if(isset($opts["c"]) && !file_exists($opts["c"])){
+                $this->show_help("Config file $opts[c] not found.");
+            }
+
+            /**
+             * parse the config file
+             */
+            if(isset($opts["c"])){
+                $this->parse_config($opts["c"]);
+            }
+        }
+        else if (is_string($config)) {
+            if (!file_exists($config)){
+                $this->show_help("Config file $config not found.");
+            }
+
+            /**
+             * parse the config file
+             */
+            $this->parse_config($config);
+        }
+        else {
+            /**
+             * set the config to the passed in array
+             * @todo  we should probably do more checks to validate the values
+             */
+            $this->config = $config;
         }
 
-        if(isset($opts["c"]) && !file_exists($opts["c"])){
-            $this->show_help("Config file $opts[c] not found.");
-        }
-
-        /**
-         * parse the config file
-         */
-        if(isset($opts["c"])){
-            $this->parse_config($opts["c"]);
-        }
 
         /**
          * command line opts always override config file
@@ -1170,5 +1196,3 @@ abstract class GearmanManager {
     }
 
 }
-
-?>
