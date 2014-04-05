@@ -20,5 +20,8 @@
     },
     "require": {
         "php": ">=5.2.0"
+    },
+    "autoload": {
+        "classmap": [ "GearmanManager.php", "GearmanPearManager.php", "GearmanPeclManager.php" ]
     }
 }
