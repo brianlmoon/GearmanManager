@@ -674,7 +674,7 @@ abstract class GearmanManager {
                     }
 
                     if(!isset($this->functions[$function])){
-                        $this->functions[$function] = array();
+                        $this->functions[$function] = array('name' => $function);
                     }
 
                     if(!empty($this->config['functions'][$function]['dedicated_only'])){
