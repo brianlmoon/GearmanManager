@@ -491,7 +491,7 @@ abstract class GearmanManager {
         /**
          * If we want to daemonize, fork here and exit
          */
-        if(isset($opts["d"])){
+        if(isset($opts["d"]) || ! empty($config['daemon'])){
             $pid = pcntl_fork();
             if($pid>0){
                 $this->isparent = false;
