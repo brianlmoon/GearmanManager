@@ -84,7 +84,13 @@ class GearmanPearManager extends GearmanManager {
 
         $this->log("Worker's last job $time seconds ago", GearmanManager::LOG_LEVEL_CRAZY);
 
-        if(!empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
+        if ( $idle && ! empty($this->config['ignore_idle_in_run_counts']) ) {
+            // Keep looking for a job
+            $this->log("No job returned, continuing to wait", GearmanManager::LOG_LEVEL_CRAZY);
+            return false;
+        }
+
+        if( !empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
             $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
             $this->stop_work = true;
         }
@@ -198,7 +204,7 @@ class GearmanPearManager extends GearmanManager {
          * Validate functions
          */
         foreach($this->functions as $name => $func){
-            $class = NET_GEARMAN_JOB_CLASS_PREFIX.$name;
+            $class = $this->config['job_class_prefix'].$name;
             if(!class_exists($class)) {
                 include $func['path'];
             }

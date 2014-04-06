@@ -286,6 +286,7 @@ abstract class GearmanManager {
         /**
          * Main processing loop for the parent process
          */
+        $counter = 0;
         while(!$this->stop_work || count($this->children)) {
 
             $status = null;
@@ -309,11 +310,17 @@ abstract class GearmanManager {
                     $code = pcntl_wexitstatus($status);
                     $this->log("Child $exited exited with error code of $code (".implode(",", $worker).")", GearmanManager::LOG_LEVEL_PROC_INFO);
                     if(!$this->stop_work){
-                        $this->start_worker($worker);
+                        $counter++;
+                        if ( empty($this->config['process_loops']) || $counter <= $this->config['process_loops']) {
+                            // We want to start another another in its place
+                            $this->start_worker($worker);
+                        }
+                        else {
+                            $this->stop_work = true;
+                        }
                     }
                 }
             }
-
 
             if($this->stop_work && time() - $this->stop_time > 60){
                 $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
@@ -330,6 +337,12 @@ abstract class GearmanManager {
                         }
                     }
                 }
+            }
+
+
+            if ( ! empty($this->config['process_loops']) && $counter >= $this->config['process_loops']) {
+                $this->stop_work = true;
+                $this->log("Counter {$counter} is greater than or equal to process loop configuration of {$this->config['process_loops']}", GearmanManager::LOG_LEVEL_DEBUG);
             }
 
             /**
@@ -362,22 +375,7 @@ abstract class GearmanManager {
     protected function getopt($config = array()) {
 
         if (empty($config)) {
-            $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
-
-            if(isset($opts["H"])){
-                $this->show_help();
-            }
-
-            if(isset($opts["c"]) && !file_exists($opts["c"])){
-                $this->show_help("Config file $opts[c] not found.");
-            }
-
-            /**
-             * parse the config file
-             */
-            if(isset($opts["c"])){
-                $this->parse_config($opts["c"]);
-            }
+            $opts = getopt("ac:dD:h:HIJl:L:o:p:P:u:v::w:r:x:Z");
         }
         else if (is_string($config)) {
             if (!file_exists($config)){
@@ -397,6 +395,33 @@ abstract class GearmanManager {
             $this->config = $config;
         }
 
+        if(isset($opts["H"])){
+            $this->show_help();
+        }
+
+        if(isset($opts["c"]) && !file_exists($opts["c"])){
+            $this->show_help("Config file $opts[c] not found.");
+        }
+
+        /**
+         * parse the config file
+         */
+        if(isset($opts["c"])){
+            $this->parse_config($opts["c"]);
+        }
+
+        $this->config['job_class_prefix'] = null;
+        if (isset($opt["J"])) {
+            $this->config['job_class_prefix'] = $opt['J'];
+        }
+
+        if (defined('NET_GEARMAN_JOB_CLASS_PREFIX')) {
+            $this->config['job_class_prefix'] = NET_GEARMAN_JOB_CLASS_PREFIX;
+        }
+
+        if ( isset($config['job_class_prefix']) ){
+            $this->config['job_class_prefix'] = $config['job_class_prefix'];
+        }
 
         /**
          * command line opts always override config file
@@ -405,8 +430,8 @@ abstract class GearmanManager {
             $this->config['pid_file'] = $opts['P'];
         }
 
-        if(isset($opts["l"])){
-            $this->config['log_file'] = $opts["l"];
+        if(isset($opts['l'])){
+            $this->config['log_file'] = $opts['l'];
         }
 
         if (isset($opts['a'])) {
@@ -423,6 +448,12 @@ abstract class GearmanManager {
 
         if (isset($opts['r'])) {
             $this->config['max_runs_per_worker'] = (int)$opts['r'];
+            $this->config['ignore_idle_run_counts'] = false;
+        }
+
+        if (isset($opts['R'])) {
+            $this->config['max_runs_per_worker'] = (int)$opts['R'];
+            $this->config['ignore_idle_run_counts'] = true;
         }
 
         if (isset($opts['D'])) {
@@ -447,6 +478,14 @@ abstract class GearmanManager {
             $this->user = $opts['u'];
         } elseif(isset($this->config["user"])){
             $this->user = $this->config["user"];
+        }
+
+        if (isset($opts['I'])) {
+            $this->config['ignore_idle_in_run_counts'] = true;
+        }
+
+        if (isset($opts['L'])) {
+            $this->config['process_loops'] = (int) $opts['L'];
         }
 
         /**
@@ -501,6 +540,10 @@ abstract class GearmanManager {
                     $this->verbose = GearmanManager::LOG_LEVEL_CRAZY;
                     break;
             }
+        }
+
+        if (isset($this->config['verbose'])) {
+            $this->verbose = $this->config['verbose'];
         }
 
         if($this->user) {
@@ -707,6 +750,9 @@ abstract class GearmanManager {
                     }
 
                     $this->functions[$function]['path'] = $file;
+                    if ($this->config['job_class_prefix']) {
+                        $this->functions[$function]['class_name'] = $this->config['job_class_prefix'] . $function;
+                    }
 
                     /**
                      * Note about priority. This exploits an undocumented feature
@@ -1181,10 +1227,13 @@ abstract class GearmanManager {
         echo "  -D NUMBER      Start NUMBER workers that do all jobs\n";
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
         echo "  -H             Shows this help\n";
+        echo "  -I             Ignore idle (no_job) responses in 'Maximum job iterations per worker' setting\n";
+        echo "  -J PREFIX      Job class prefix [default is 'Net_Gearman_Job_'] (PEAR ONLY)\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
+        echo "  -L NUMBER      Number of process loops to run\n";
         echo "  -p PREFIX      Optional log line prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
-        echo "  -u USERNAME    Run wokers as USERNAME\n";
+        echo "  -u USERNAME    Run workers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
         echo "  -w DIR         Directory where workers are located, defaults to ./workers. If you are using PECL, you can provide multiple directories separated by a comma.\n";
         echo "  -r NUMBER      Maximum job iterations per worker\n";
