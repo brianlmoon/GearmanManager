@@ -51,7 +51,7 @@ class GearmanPearManager extends GearmanManager {
                 $message.= "; timeout: $timeout";
             }
             $this->log($message, GearmanManager::LOG_LEVEL_WORKER_INFO);
-            $worker->addAbility($w, $timeout);
+            $worker->addAbility($w, $timeout, $this->functions[$w]);
         }
 
         $worker->attachCallback(array($this, 'job_start'), Net_Gearman_Worker::JOB_START);
