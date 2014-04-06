@@ -316,6 +316,10 @@ abstract class GearmanManager {
                             $this->start_worker($worker);
                         }
                         else {
+                            /**
+                             * @todo Don't want to do this because it kills all children; which I need to
+                             * figure out how to handle that better
+                             */
                             $this->stop_work = true;
                         }
                     }
