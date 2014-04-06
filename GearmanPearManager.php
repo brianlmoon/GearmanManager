@@ -183,7 +183,7 @@ class GearmanPearManager extends GearmanManager {
 
 
     /**
-     * Validates the PECL compatible worker files/functions
+     * Validates the PEAR compatible worker files/functions
      */
     protected function validate_lib_workers() {
 
