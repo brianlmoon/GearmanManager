@@ -229,10 +229,20 @@ abstract class GearmanManager {
 
         $this->pid = getmypid();
 
+    }
+
+
+    /**
+     * Run the manager based on the config either passed in via command line or the config array.
+     *
+     * @param  array  $config Config to run
+     */
+    public function run($config = array())
+    {
         /**
          * Parse command line options. Loads the config file as well
          */
-        $this->getopt();
+        $this->getopt($config);
 
         /**
          * Register signal listeners
@@ -352,8 +362,23 @@ abstract class GearmanManager {
     /**
      * Parses the command line options
      *
+     * @param array $config <ul>
+     *   <li><b>auto_update:</b> Automatically check for new worker code.</li>
+     *   <li><b>count:</b> Number of workers to start that do all jobs.</li>
+     *   <li><b>daemon:</b> Daemon, detach and run in the background when true.</li>
+     *   <li><b>file:</b> File to load the configuration from.</li>
+     *   <li><b>host:</b> Host to connect to in server:port format, although port is optional.</li>
+     *   <li><b>log_file:</b> Log output to LOG_FILE or use keyword 'syslog' for syslog support.</li>
+     *   <li><b>max_runs_per_worker:</b> Maximum job iterations per worker.</li>
+     *   <li><b>max_worker_lifetime:</b> Maximum number of seconds for a worker to live.</li>
+     *   <li><b>pid_file:</b> File to write process ID to.</li>
+     *   <li><b>prefix:</b> Job Class prefix to use.</li>
+     *   <li><b>timeout:</b> Maximum number of seconds germand server should wait for a worker to complete work before timing out and reissuing work to another worker.</li>
+     *   <li><b>worker_dir:</b> Directory where workers are located, defaults to ./workers.  If you are using PECL, you can provide multiple directories separated by comma.</li>
+     *   <li><b>verbose:</b> Set the log verbosity.  See the LOG_LEVEL_* constants.</li>
+     * </ul>
      */
-    protected function getopt() {
+    protected function getopt($config = array()) {
 
         $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
 
@@ -361,15 +386,23 @@ abstract class GearmanManager {
             $this->show_help();
         }
 
-        if(isset($opts["c"]) && !file_exists($opts["c"])){
-            $this->show_help("Config file $opts[c] not found.");
-        }
-
         /**
          * parse the config file
          */
+        if ( ! empty($config) && is_array($config) ) {
+            /**
+             * set the config to the passed in array
+             * @todo  we should probably do more checks to validate the values
+             */
+            $this->config = array_merge($this->config, $config);
+        }
+
         if(isset($opts["c"])){
-            $this->parse_config($opts["c"]);
+            $this->config['file'] = $opts['c'];
+        }
+
+        if (isset($this->config['file']) && ! file_exists($this->config['file'])) {
+            $this->show_help("Config file {$this->config['file']} not found.");
         }
 
         /**
@@ -426,7 +459,7 @@ abstract class GearmanManager {
         /**
          * If we want to daemonize, fork here and exit
          */
-        if(isset($opts["d"])){
+        if(isset($opts["d"]) || ! empty($this->config['daemon'])) {
             $pid = pcntl_fork();
             if($pid>0){
                 $this->isparent = false;
@@ -454,6 +487,10 @@ abstract class GearmanManager {
                 $this->log_file = $this->config['log_file'];
                 $this->open_log_file();
             }
+        }
+
+        if (isset($this->config['verbose'])) {
+            $this->verbose = (int) $this->config['verbose'] ?: GearmanManager::LOG_LEVEL_INFO;
         }
 
         if(isset($opts["v"])){
