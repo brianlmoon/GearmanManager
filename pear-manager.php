@@ -10,8 +10,6 @@
  *
  */
 
-declare(ticks = 1);
-
 /**
  * Uncomment and set to your prefix.
  */
