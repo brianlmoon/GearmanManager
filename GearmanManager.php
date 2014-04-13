@@ -720,6 +720,7 @@ abstract class GearmanManager {
                     }
 
                     $this->functions[$function]['path'] = $file;
+                    $this->functions[$function]['class_name'] = $this->prefix . $function;
 
                     /**
                      * Note about priority. This exploits an undocumented feature
