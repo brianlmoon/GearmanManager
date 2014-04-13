@@ -448,6 +448,8 @@ abstract class GearmanManager {
             $this->prefix = $opts['p'];
         } elseif(!empty($this->config['prefix'])) {
             $this->prefix = $this->config['prefix'];
+        } elseif(defined('NET_GEARMAN_JOB_CLASS_PREFIX')) {
+            $this->prefix = NET_GEARMAN_JOB_CLASS_PREFIX;
         }
 
         if(isset($opts['u'])){
@@ -685,7 +687,7 @@ abstract class GearmanManager {
                     }
 
                     if(!isset($this->functions[$function])){
-                        $this->functions[$function] = array();
+                        $this->functions[$function] = array('name' => $function);
                     }
 
                     if(!empty($this->config['functions'][$function]['dedicated_only'])){
