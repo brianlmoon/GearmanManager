@@ -64,7 +64,7 @@ class GearmanPearManager extends GearmanManager {
     }
 
     /**
-     * Monitor call back for worker. Return false to stop worker
+     * Monitor call back for worker. Return true to stop worker
      *
      * @param   bool    $idle       If true the worker was idle
      * @param   int     $lastJob    The time the last job was run
@@ -73,16 +73,15 @@ class GearmanPearManager extends GearmanManager {
      */
     public function monitor($idle, $lastJob) {
 
+        $time = time() - $lastJob;
+        $this->log("Worker's last job $time seconds ago", GearmanManager::LOG_LEVEL_CRAZY);
+
         if($this->max_run_time > 0 && time() - $this->start_time > $this->max_run_time) {
             $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
             $this->stop_work = true;
         }
-
-        $time = time() - $lastJob;
-
-        $this->log("Worker's last job $time seconds ago", GearmanManager::LOG_LEVEL_CRAZY);
-
-        if(!empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
+        else if( ! $idle && ! empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"] ) {
+            // So if wasn't an idle connection and the max_runs_per_worker was hit, then we need to stop execution
             $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
             $this->stop_work = true;
         }
