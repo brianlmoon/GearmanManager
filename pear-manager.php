@@ -20,3 +20,4 @@ declare(ticks = 1);
 require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'GearmanPearManager.php';
 
 $mgr = new GearmanPearManager();
+$mgr->run();
