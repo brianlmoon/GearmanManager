@@ -903,8 +903,10 @@ abstract class GearmanManager {
                 }
 
                 if($this->worker_restart_splay > 0){
-                    $this->max_run_time = (int)rand($this->config['max_worker_lifetime'], $this->config['max_worker_lifetime'] + $this->worker_restart_splay);
-                    $this->log("Adjusted max run time to $this->max_run_time seconds", GearmanManager::LOG_LEVEL_DEBUG);
+                    mt_srand($this->pid); // Since all child threads use the same seed, we need to reseed with the pid so that we get a new "random" number.
+                    $splay = mt_rand(0, $this->worker_restart_splay);
+                    $this->max_run_time = $this->config['max_worker_lifetime'] + $splay;
+                    $this->log("Adjusted max run time to {$this->max_run_time} seconds (max_worker_lifetime:{$this->config['max_worker_lifetime']} + splay:{$splay})", GearmanManager::LOG_LEVEL_DEBUG);
                 }
 
                 $this->start_lib_worker($worker_list, $timeouts);
