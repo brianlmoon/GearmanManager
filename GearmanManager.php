@@ -397,12 +397,17 @@ abstract class GearmanManager {
             $this->config = array_merge($this->config, $config);
         }
 
-        if(isset($opts["c"])){
+        if(isset($opts["c"])) {
             $this->config['file'] = $opts['c'];
         }
 
-        if (isset($this->config['file']) && ! file_exists($this->config['file'])) {
-            $this->show_help("Config file {$this->config['file']} not found.");
+        if (isset($this->config['file'])) {
+            if (file_exists($this->config['file'])) {
+                $this->parse_config($this->config['file']);
+            }
+            else {
+                $this->show_help("Config file {$this->config['file']} not found.");
+            }
         }
 
         /**
