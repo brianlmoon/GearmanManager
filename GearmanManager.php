@@ -451,7 +451,7 @@ abstract class GearmanManager {
 
         if (isset($opts['p'])) {
             $this->prefix = $opts['p'];
-        } elseif(!empty($this->config['prefix'])) {
+        } elseif(isset($this->config['prefix'])) {
             $this->prefix = $this->config['prefix'];
         } elseif(defined('NET_GEARMAN_JOB_CLASS_PREFIX')) {
             $this->prefix = NET_GEARMAN_JOB_CLASS_PREFIX;
