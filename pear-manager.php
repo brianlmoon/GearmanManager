@@ -12,8 +12,12 @@
 
 declare(ticks = 1);
 
-require dirname(__FILE__) . "/GearmanManager.php";
-require dirname(__FILE__) . "/GearmanPearManager.php";
+/**
+ * Uncomment and set to your prefix.
+ */
+//define("NET_GEARMAN_JOB_CLASS_PREFIX", "");
+
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'GearmanPearManager.php';
 
 $mgr = new GearmanPearManager();
 $mgr->run();

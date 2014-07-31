@@ -1,14 +1,12 @@
 <?php
 /**
- * Uncomment and set to your prefix.
- */
-//define("NET_GEARMAN_JOB_CLASS_PREFIX", "");
-
-require dirname(__FILE__)."/GearmanManager.php";
-
-/**
  * Implements the worker portions of the PEAR Net_Gearman library
  */
+
+declare(ticks = 1);
+
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'GearmanManager.php';
+
 class GearmanPearManager extends GearmanManager {
 
     public static $LOG = array();
@@ -66,7 +64,7 @@ class GearmanPearManager extends GearmanManager {
     }
 
     /**
-     * Monitor call back for worker. Return false to stop worker
+     * Monitor call back for worker. Return true to stop worker
      *
      * @param   bool    $idle       If true the worker was idle
      * @param   int     $lastJob    The time the last job was run
@@ -75,22 +73,15 @@ class GearmanPearManager extends GearmanManager {
      */
     public function monitor($idle, $lastJob) {
 
+        $time = time() - $lastJob;
+        $this->log("Worker's last job $time seconds ago", GearmanManager::LOG_LEVEL_CRAZY);
+
         if($this->max_run_time > 0 && time() - $this->start_time > $this->max_run_time) {
             $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
             $this->stop_work = true;
         }
-
-        $time = time() - $lastJob;
-
-        $this->log("Worker's last job $time seconds ago", GearmanManager::LOG_LEVEL_CRAZY);
-
-        if ( $idle && ! empty($this->config['ignore_idle_in_run_counts']) ) {
-            // Keep looking for a job
-            $this->log("No job returned, continuing to wait", GearmanManager::LOG_LEVEL_CRAZY);
-            return false;
-        }
-
-        if( !empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
+        else if( ! $idle && ! empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"] ) {
+            // So if wasn't an idle connection and the max_runs_per_worker was hit, then we need to stop execution
             $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
             $this->stop_work = true;
         }
@@ -183,7 +174,7 @@ class GearmanPearManager extends GearmanManager {
 
 
     /**
-     * Validates the PEAR compatible worker files/functions
+     * Validates the PECL compatible worker files/functions
      */
     protected function validate_lib_workers() {
 
@@ -204,11 +195,14 @@ class GearmanPearManager extends GearmanManager {
          * Validate functions
          */
         foreach($this->functions as $name => $func){
-            $class = $this->config['job_class_prefix'].$name;
+            $class = $this->prefix . $name;
+
             if(!class_exists($class)) {
                 include $func['path'];
             }
-            if(!class_exists($class) && !method_exists($class, "run")) {
+
+            // Check to see if the class exists now and that it has a method named run
+            if( ! class_exists($class, false) || ! method_exists($class, "run")) {
                 $this->log("Class $class not found in {$func['path']} or run method not present");
                 posix_kill($this->pid, SIGUSR2);
                 exit();

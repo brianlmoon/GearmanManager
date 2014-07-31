@@ -1,5 +1,5 @@
 {
-    "name": "jpirkey/gearmanmanager",
+    "name": "brianlmoon/gearmanmanager",
     "homepage": "http://brian.moonspot.net/GearmanManager",
     "description": "PHP daemon for managing gearman workers",
     "keywords": ["gearman","net_gearman","gearman-manager"],
@@ -12,7 +12,7 @@
         }
     ],
     "suggest": {
-        "jpirkey/net_gearman" : "A PHP interface for Danga's Gearman",
+        "brianlmoon/net_gearman" : "A PHP interface for Danga's Gearman",
         "ext-gearman" : "PHP wrapper to libgearman"
     },
     "support": {

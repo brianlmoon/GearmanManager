@@ -213,17 +213,11 @@ abstract class GearmanManager {
      */
     protected $prefix = "";
 
-    public function __construct($config = null)
-    {
-        $this->getopt($config);
-        $this->pid = getmypid();
-    }
-
     /**
      * Creates the manager and gets things going
      *
      */
-    public function run($config = null) {
+    public function __construct() {
 
         if(!function_exists("posix_kill")){
             $this->show_help("The function posix_kill was not found. Please ensure POSIX functions are installed");
@@ -233,12 +227,22 @@ abstract class GearmanManager {
             $this->show_help("The function pcntl_fork was not found. Please ensure Process Control functions are installed");
         }
 
-        if ( ! empty($config)) {
-            /**
-             * Parse command line options. Loads the config file as well
-             */
-            $this->getopt($config);
-        }
+        $this->pid = getmypid();
+
+    }
+
+
+    /**
+     * Run the manager based on the config either passed in via command line or the config array.
+     *
+     * @param  array  $config Config to run
+     */
+    public function run($config = array())
+    {
+        /**
+         * Parse command line options. Loads the config file as well
+         */
+        $this->getopt($config);
 
         /**
          * Register signal listeners
@@ -286,7 +290,6 @@ abstract class GearmanManager {
         /**
          * Main processing loop for the parent process
          */
-        $counter = 0;
         while(!$this->stop_work || count($this->children)) {
 
             $status = null;
@@ -310,21 +313,11 @@ abstract class GearmanManager {
                     $code = pcntl_wexitstatus($status);
                     $this->log("Child $exited exited with error code of $code (".implode(",", $worker).")", GearmanManager::LOG_LEVEL_PROC_INFO);
                     if(!$this->stop_work){
-                        $counter++;
-                        if ( empty($this->config['process_loops']) || $counter <= $this->config['process_loops']) {
-                            // We want to start another another in its place
-                            $this->start_worker($worker);
-                        }
-                        else {
-                            /**
-                             * @todo Don't want to do this because it kills all children; which I need to
-                             * figure out how to handle that better
-                             */
-                            $this->stop_work = true;
-                        }
+                        $this->start_worker($worker);
                     }
                 }
             }
+
 
             if($this->stop_work && time() - $this->stop_time > 60){
                 $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
@@ -341,12 +334,6 @@ abstract class GearmanManager {
                         }
                     }
                 }
-            }
-
-
-            if ( ! empty($this->config['process_loops']) && $counter >= $this->config['process_loops']) {
-                $this->stop_work = true;
-                $this->log("Counter {$counter} is greater than or equal to process loop configuration of {$this->config['process_loops']}", GearmanManager::LOG_LEVEL_DEBUG);
             }
 
             /**
@@ -375,56 +362,52 @@ abstract class GearmanManager {
     /**
      * Parses the command line options
      *
+     * @param array $config <ul>
+     *   <li><b>auto_update:</b> Automatically check for new worker code.</li>
+     *   <li><b>count:</b> Number of workers to start that do all jobs.</li>
+     *   <li><b>daemon:</b> Daemon, detach and run in the background when true.</li>
+     *   <li><b>file:</b> File to load the configuration from.</li>
+     *   <li><b>host:</b> Host to connect to in server:port format, although port is optional.</li>
+     *   <li><b>log_file:</b> Log output to LOG_FILE or use keyword 'syslog' for syslog support.</li>
+     *   <li><b>max_runs_per_worker:</b> Maximum job iterations per worker.</li>
+     *   <li><b>max_worker_lifetime:</b> Maximum number of seconds for a worker to live.</li>
+     *   <li><b>pid_file:</b> File to write process ID to.</li>
+     *   <li><b>prefix:</b> Job Class prefix to use.</li>
+     *   <li><b>timeout:</b> Maximum number of seconds germand server should wait for a worker to complete work before timing out and reissuing work to another worker.</li>
+     *   <li><b>worker_dir:</b> Directory where workers are located, defaults to ./workers.  If you are using PECL, you can provide multiple directories separated by comma.</li>
+     *   <li><b>verbose:</b> Set the log verbosity.  See the LOG_LEVEL_* constants.</li>
+     * </ul>
      */
     protected function getopt($config = array()) {
 
-        if (empty($config)) {
-            $opts = getopt("ac:dD:h:HIJl:L:o:p:P:u:v::w:r:x:Z");
-        }
-        else if (is_string($config)) {
-            if (!file_exists($config)){
-                $this->show_help("Config file $config not found.");
-            }
-
-            /**
-             * parse the config file
-             */
-            $this->parse_config($config);
-        }
-        else {
-            /**
-             * set the config to the passed in array
-             * @todo  we should probably do more checks to validate the values
-             */
-            $this->config = $config;
-        }
+        $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
 
         if(isset($opts["H"])){
             $this->show_help();
         }
 
-        if(isset($opts["c"]) && !file_exists($opts["c"])){
-            $this->show_help("Config file $opts[c] not found.");
-        }
-
         /**
          * parse the config file
          */
-        if(isset($opts["c"])){
-            $this->parse_config($opts["c"]);
+        if ( ! empty($config) && is_array($config) ) {
+            /**
+             * set the config to the passed in array
+             * @todo  we should probably do more checks to validate the values
+             */
+            $this->config = array_merge($this->config, $config);
         }
 
-        $this->config['job_class_prefix'] = null;
-        if (isset($opt["J"])) {
-            $this->config['job_class_prefix'] = $opt['J'];
+        if(isset($opts["c"])) {
+            $this->config['file'] = $opts['c'];
         }
 
-        if (defined('NET_GEARMAN_JOB_CLASS_PREFIX')) {
-            $this->config['job_class_prefix'] = NET_GEARMAN_JOB_CLASS_PREFIX;
-        }
-
-        if ( isset($config['job_class_prefix']) ){
-            $this->config['job_class_prefix'] = $config['job_class_prefix'];
+        if (isset($this->config['file'])) {
+            if (file_exists($this->config['file'])) {
+                $this->parse_config($this->config['file']);
+            }
+            else {
+                $this->show_help("Config file {$this->config['file']} not found.");
+            }
         }
 
         /**
@@ -434,8 +417,8 @@ abstract class GearmanManager {
             $this->config['pid_file'] = $opts['P'];
         }
 
-        if(isset($opts['l'])){
-            $this->config['log_file'] = $opts['l'];
+        if(isset($opts["l"])){
+            $this->config['log_file'] = $opts["l"];
         }
 
         if (isset($opts['a'])) {
@@ -452,12 +435,6 @@ abstract class GearmanManager {
 
         if (isset($opts['r'])) {
             $this->config['max_runs_per_worker'] = (int)$opts['r'];
-            $this->config['ignore_idle_run_counts'] = false;
-        }
-
-        if (isset($opts['R'])) {
-            $this->config['max_runs_per_worker'] = (int)$opts['R'];
-            $this->config['ignore_idle_run_counts'] = true;
         }
 
         if (isset($opts['D'])) {
@@ -476,6 +453,10 @@ abstract class GearmanManager {
             $this->prefix = $opts['p'];
         } elseif(!empty($this->config['prefix'])) {
             $this->prefix = $this->config['prefix'];
+        } elseif(defined('NET_GEARMAN_JOB_CLASS_PREFIX')) {
+            $this->prefix = NET_GEARMAN_JOB_CLASS_PREFIX;
+        } else {
+            $this->prefix = 'Net_Gearman_Job_';
         }
 
         if(isset($opts['u'])){
@@ -484,18 +465,10 @@ abstract class GearmanManager {
             $this->user = $this->config["user"];
         }
 
-        if (isset($opts['I'])) {
-            $this->config['ignore_idle_in_run_counts'] = true;
-        }
-
-        if (isset($opts['L'])) {
-            $this->config['process_loops'] = (int) $opts['L'];
-        }
-
         /**
          * If we want to daemonize, fork here and exit
          */
-        if(isset($opts["d"]) || ! empty($config['daemon'])){
+        if(isset($opts["d"]) || ! empty($this->config['daemon'])) {
             $pid = pcntl_fork();
             if($pid>0){
                 $this->isparent = false;
@@ -525,6 +498,10 @@ abstract class GearmanManager {
             }
         }
 
+        if (isset($this->config['verbose'])) {
+            $this->verbose = (int) $this->config['verbose'] ?: GearmanManager::LOG_LEVEL_INFO;
+        }
+
         if(isset($opts["v"])){
             switch($opts["v"]){
                 case false:
@@ -544,10 +521,6 @@ abstract class GearmanManager {
                     $this->verbose = GearmanManager::LOG_LEVEL_CRAZY;
                     break;
             }
-        }
-
-        if (isset($this->config['verbose'])) {
-            $this->verbose = $this->config['verbose'];
         }
 
         if($this->user) {
@@ -754,9 +727,7 @@ abstract class GearmanManager {
                     }
 
                     $this->functions[$function]['path'] = $file;
-                    if ($this->config['job_class_prefix']) {
-                        $this->functions[$function]['class_name'] = $this->config['job_class_prefix'] . $function;
-                    }
+                    $this->functions[$function]['class_name'] = $this->prefix . $function;
 
                     /**
                      * Note about priority. This exploits an undocumented feature
@@ -979,8 +950,10 @@ abstract class GearmanManager {
                 }
 
                 if($this->worker_restart_splay > 0){
-                    $this->max_run_time = (int)rand($this->config['max_worker_lifetime'], $this->config['max_worker_lifetime'] + $this->worker_restart_splay);
-                    $this->log("Adjusted max run time to $this->max_run_time seconds", GearmanManager::LOG_LEVEL_DEBUG);
+                    mt_srand($this->pid); // Since all child threads use the same seed, we need to reseed with the pid so that we get a new "random" number.
+                    $splay = mt_rand(0, $this->worker_restart_splay);
+                    $this->max_run_time = $this->config['max_worker_lifetime'] + $splay;
+                    $this->log("Adjusted max run time to {$this->max_run_time} seconds (max_worker_lifetime:{$this->config['max_worker_lifetime']} + splay:{$splay})", GearmanManager::LOG_LEVEL_DEBUG);
                 }
 
                 $this->start_lib_worker($worker_list, $timeouts);
@@ -1231,11 +1204,8 @@ abstract class GearmanManager {
         echo "  -D NUMBER      Start NUMBER workers that do all jobs\n";
         echo "  -h HOST[:PORT] Connect to HOST and optional PORT\n";
         echo "  -H             Shows this help\n";
-        echo "  -I             Ignore idle (no_job) responses in 'Maximum job iterations per worker' setting\n";
-        echo "  -J PREFIX      Job class prefix [default is 'Net_Gearman_Job_'] (PEAR ONLY)\n";
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
-        echo "  -L NUMBER      Number of process loops to run\n";
-        echo "  -p PREFIX      Optional log line prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
+        echo "  -p PREFIX      Optional prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
         echo "  -u USERNAME    Run workers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";

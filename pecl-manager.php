@@ -12,8 +12,7 @@
 
 declare(ticks = 1);
 
-require dirname(__FILE__) . "/GearmanManager.php";
-require dirname(__FILE__) . "/GearmanPeclManager.php";
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'GearmanPeclManager.php';
 
 $mgr = new GearmanPeclManager();
 $mgr->run();
