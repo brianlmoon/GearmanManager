@@ -14,6 +14,12 @@ class GearmanPearManager extends GearmanManager {
     private $start_time;
 
     /**
+     * Job Class prefix to use.
+     * @var string
+     */
+    protected $prefix = 'Net_Gearman_Job_';
+
+    /**
      * Starts a worker for the PEAR library
      *
      * @param   array   $worker_list    List of worker functions to add
