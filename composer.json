@@ -19,7 +19,7 @@
         "issues": "https://github.com/brianlmoon/GearmanManager/issues"
     },
     "require": {
-        "php": ">=5.2.0"
+        "php": ">=5.3.2"
     },
     "autoload": {
         "classmap": [ "GearmanManager.php", "GearmanPearManager.php", "GearmanPeclManager.php" ]
