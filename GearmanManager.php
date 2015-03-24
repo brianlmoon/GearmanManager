@@ -325,12 +325,12 @@ abstract class GearmanManager {
             } else {
                 /**
                  *  If any children have been running 150% of max run time, forcibly terminate them
+                 *  Cancel that, we'll actually let them finish
                  */
                 if (!empty($this->children)) {
                     foreach($this->children as $pid => $child) {
                         if (!empty($child['start_time']) && time() - $child['start_time'] > $this->max_run_time * 1.5) {
-                            $this->log("Child $pid has been running too long. Forcibly killing process. (".implode(",", $child['job']).")", GearmanManager::LOG_LEVEL_PROC_INFO);
-                            mail($this->alerts_email, "Child $pid has been running too long.", print_r($child, true));
+                            $this->log("Child $pid has been running too long. (".implode(",", $child['job']).")", GearmanManager::LOG_LEVEL_PROC_INFO);
                             //posix_kill($pid, SIGKILL);
                         }
                     }
