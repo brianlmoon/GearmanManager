@@ -63,7 +63,6 @@ class GearmanPearManager extends GearmanManager {
         $worker->attachCallback(array($this, 'job_fail'), Net_Gearman_Worker::JOB_FAIL);
 
         $this->start_time = time();
-        $this->job_execution_count++;
 
         $worker->beginWork(array($this, "monitor"));
 
@@ -99,7 +98,13 @@ class GearmanPearManager extends GearmanManager {
      * Call back for when jobs are started
      */
     public function job_start($handle, $job, $args) {
-        $this->log("($handle) Starting Job: $job", GearmanManager::LOG_LEVEL_WORKER_INFO);
+        $this->job_execution_count++;
+        if ( ! empty($this->config["max_runs_per_worker"]) ) {
+            $message = sprintf('(%s) Starting Job (%d/%d): %s', $handle, $this->job_execution_count, $this->config["max_runs_per_worker"], $job);
+            $this->log($message, GearmanManager::LOG_LEVEL_WORKER_INFO);
+        } else {
+            $this->log("($handle) Starting Job: $job", GearmanManager::LOG_LEVEL_WORKER_INFO);
+        }
         $this->log("($handle) Workload: ".json_encode($args), GearmanManager::LOG_LEVEL_DEBUG);
         self::$LOG = array();
     }
