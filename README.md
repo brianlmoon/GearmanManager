@@ -4,7 +4,7 @@ Gearman Manager for PHP
 PHP Requirements
 ----------------
 
- * PHP 5.2.? - not sure exact version
+ * PHP 5.2.? - not sure exact version, 5.3.2+ for composer.
  * POSIX extension
  * Process Control extension
  * pecl/gearman or Net_Gearman

@@ -1,0 +1,27 @@
+{
+    "name": "brianlmoon/gearmanmanager",
+    "homepage": "http://brian.moonspot.net/GearmanManager",
+    "description": "PHP daemon for managing gearman workers",
+    "keywords": ["gearman","net_gearman","gearman-manager"],
+    "type": "library",
+    "license": "BSD",
+    "authors": [
+        {
+            "name": "Brian Moon",
+            "homepage": "http://brian.moonspot.net"
+        }
+    ],
+    "suggest": {
+        "brianlmoon/net_gearman" : "A PHP interface for Danga's Gearman",
+        "ext-gearman" : "PHP wrapper to libgearman"
+    },
+    "support": {
+        "issues": "https://github.com/brianlmoon/GearmanManager/issues"
+    },
+    "require": {
+        "php": ">=5.3.2"
+    },
+    "autoload": {
+        "classmap": [ "GearmanManager.php", "GearmanPearManager.php", "GearmanPeclManager.php" ]
+    }
+}
