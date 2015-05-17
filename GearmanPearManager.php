@@ -208,7 +208,7 @@ class GearmanPearManager extends GearmanManager {
         foreach($this->functions as $name => $func){
             $class = $this->prefix . $name;
 
-            if(!class_exists($class)) {
+            if(!class_exists($class, false)) {
                 include $func['path'];
             }
 
