@@ -368,15 +368,17 @@ abstract class GearmanManager {
             $this->show_help();
         }
 
-        if (isset($opts["c"]) && !file_exists($opts["c"])) {
-            $this->show_help("Config file $opts[c] not found.");
+        if (isset($opts["c"])) {
+            $this->config['file'] = $opts['c'];
         }
 
-        /**
-         * parse the config file
-         */
-        if (isset($opts["c"])) {
-            $this->parse_config($opts["c"]);
+        if (isset($this->config['file'])) {
+            if (file_exists($this->config['file'])) {
+                $this->parse_config($this->config['file']);
+            }
+            else {
+                $this->show_help("Config file {$this->config['file']} not found.");
+            }
         }
 
         /**
@@ -387,7 +389,7 @@ abstract class GearmanManager {
         }
 
         if (isset($opts["l"])) {
-            $this->log_file = $opts["l"];
+            $this->config['log_file'] = $opts["l"];
         }
 
         if (isset($opts['a'])) {
@@ -521,7 +523,7 @@ abstract class GearmanManager {
             $this->worker_dir = "./workers";
         }
 
-        $dirs = explode(",", $this->worker_dir);
+        $dirs = is_array($this->worker_dir) ? $this->worker_dir : explode(",", $this->worker_dir);
         foreach ($dirs as &$dir) {
             $dir = trim($dir);
             if (!file_exists($dir)) {
@@ -622,7 +624,7 @@ abstract class GearmanManager {
 
         $this->functions = array();
 
-        $dirs = explode(",", $this->worker_dir);
+        $dirs = is_array($this->worker_dir) ? $this->worker_dir : explode(",", $this->worker_dir);
 
         foreach ($dirs as $dir) {
 
@@ -653,7 +655,7 @@ abstract class GearmanManager {
                     }
 
                     if (!isset($this->functions[$function])) {
-                        $this->functions[$function] = array();
+                        $this->functions[$function] = array('name' => $function);
                     }
 
                     if (!empty($this->config['functions'][$function]['dedicated_only'])) {
@@ -913,8 +915,10 @@ abstract class GearmanManager {
                 }
 
                 if ($this->worker_restart_splay > 0) {
-                    $this->max_run_time = (int)rand($this->config['max_worker_lifetime'], $this->config['max_worker_lifetime'] + $this->worker_restart_splay);
-                    $this->log("Adjusted max run time to $this->max_run_time seconds", GearmanManager::LOG_LEVEL_DEBUG);
+                    mt_srand($this->pid); // Since all child threads use the same seed, we need to reseed with the pid so that we get a new "random" number.
+                    $splay = mt_rand(0, $this->worker_restart_splay);
+                    $this->max_run_time += $splay;
+                    $this->log("Adjusted max run time to {$this->max_run_time} seconds", GearmanManager::LOG_LEVEL_DEBUG);
                 }
 
                 $this->start_lib_worker($worker_list, $timeouts);
@@ -1195,7 +1199,7 @@ abstract class GearmanManager {
         echo "  -l LOG_FILE    Log output to LOG_FILE or use keyword 'syslog' for syslog support\n";
         echo "  -p PREFIX      Optional prefix for functions/classes of PECL workers. PEAR requires a constant be defined in code.\n";
         echo "  -P PID_FILE    File to write process ID out to\n";
-        echo "  -u USERNAME    Run wokers as USERNAME\n";
+        echo "  -u USERNAME    Run workers as USERNAME\n";
         echo "  -v             Increase verbosity level by one\n";
         echo "  -w DIR         Directory where workers are located, defaults to ./workers. If you are using PECL, you can provide multiple directories separated by a comma.\n";
         echo "  -r NUMBER      Maximum job iterations per worker\n";
@@ -1207,5 +1211,3 @@ abstract class GearmanManager {
     }
 
 }
-
-?>

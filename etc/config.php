@@ -15,5 +15,3 @@ $gearman_config = array(
     ),
 
 );
-
-?>
