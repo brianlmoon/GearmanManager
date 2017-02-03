@@ -12,7 +12,7 @@
         }
     ],
     "suggest": {
-        "brianlmoon/net_gearman" : "A PHP interface for Danga's Gearman",
+        "brianlmoon/net_gearman" : "A PHP interface for Gearman (requires version 1.0.*)",
         "ext-gearman" : "PHP wrapper to libgearman"
     },
     "support": {
