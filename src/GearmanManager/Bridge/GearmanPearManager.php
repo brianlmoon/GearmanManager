@@ -12,10 +12,6 @@ use \GearmanManager\GearmanManager;
  *
  */
 
-if (!class_exists("GearmanManager")) {
-    require dirname(__FILE__)."/../GearmanManager.php";
-}
-
 /**
  * Implements the worker portions of the PEAR Net_Gearman library
  */
