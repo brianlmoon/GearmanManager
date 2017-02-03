@@ -21,6 +21,7 @@
     "require": {
         "php": ">=5.5.9"
     },
+    "bin": ["bin/pear_manager.php", "bin/pecl_manager.php"],
     "autoload": {
         "psr-4": {
             "GearmanManager\\": "src/"
