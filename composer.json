@@ -19,7 +19,9 @@
         "issues": "https://github.com/brianlmoon/GearmanManager/issues"
     },
     "require": {
-        "php": ">=5.5.9"
+        "php": ">=5.5.9",
+        "ext-pcntl": "*",
+        "ext-posix": "*"
     },
     "autoload": {
         "psr-4": {
