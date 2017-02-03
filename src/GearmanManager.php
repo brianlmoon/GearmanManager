@@ -336,7 +336,7 @@ abstract class GearmanManager {
             /**
              * php will eat up your cpu if you don't have this
              */
-            usleep(50000);
+            usleep(10000);
 
         }
 
