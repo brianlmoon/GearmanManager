@@ -1,8 +1,8 @@
 #!/usr/bin/env php
 <?php
 
-if(!class_exists("GearmanManager\Bridge\GearmanPeclManager")){
-    require __DIR__."/../src/GearmanManager/Bridge/GearmanPeclManager.php";
+if(!class_exists("GearmanManager\Bridge\GearmanPeclManager")) {
+    require __DIR__."/../src/Bridge/GearmanPeclManager.php";
 }
 
 declare(ticks = 1);
