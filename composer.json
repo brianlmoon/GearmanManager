@@ -4,7 +4,7 @@
     "description": "PHP daemon for managing gearman workers",
     "keywords": ["gearman","net_gearman","gearman-manager"],
     "type": "library",
-    "license": "BSD",
+    "license": "BSD-2-Clause",
     "authors": [
         {
             "name": "Brian Moon",
