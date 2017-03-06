@@ -308,7 +308,7 @@ abstract class GearmanManager {
                     } else {
                         $exit_status = $code;
                     }
-                    $this->child_status_monitor($pid, $worker, $exit_status);
+                    $this->child_status_monitor($exited, $worker, $exit_status);
                     if (!$this->stop_work) {
                         $this->start_worker($worker);
                     }
