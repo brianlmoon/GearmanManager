@@ -349,6 +349,12 @@ abstract class GearmanManager {
     public function __destruct() {
         if ($this->isparent) {
             if (!empty($this->pid_file) && file_exists($this->pid_file)) {
+                $pid = trim(file_get_contents($this->pid_file));
+                if ($this->pid != $pid) {
+                    $this->log("Not removing PID file ($pid) since it is not the current process ({$this->pid_file})", GearmanManager::LOG_LEVEL_PROC_INFO);
+                    return;
+                }
+
                 if (!unlink($this->pid_file)) {
                     $this->log("Could not delete PID file", GearmanManager::LOG_LEVEL_PROC_INFO);
                 }
