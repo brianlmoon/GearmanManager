@@ -219,7 +219,7 @@ abstract class GearmanManager {
      * Creates the manager and gets things going
      *
      */
-    public function __construct() {
+    public function __construct($config = array()) {
 
         if (!function_exists("posix_kill")) {
             $this->show_help("The function posix_kill was not found. Please ensure POSIX functions are installed");
@@ -234,7 +234,7 @@ abstract class GearmanManager {
         /**
          * Parse command line options. Loads the config file as well
          */
-        $this->getopt();
+        $this->getopt($config);
 
         /**
          * Register signal listeners
@@ -360,7 +360,8 @@ abstract class GearmanManager {
      * Parses the command line options
      *
      */
-    protected function getopt() {
+    protected function getopt($config = array()) {
+        $this->config = $config;
 
         $opts = getopt("ac:dD:h:Hl:o:p:P:u:v::w:r:x:Z");
 
@@ -466,20 +467,29 @@ abstract class GearmanManager {
         }
 
         if (isset($opts["v"])) {
-            switch ($opts["v"]) {
+            $this->config['verbose'] = $opts["v"];
+        }
+
+        if (isset($this->config['verbose'])) {
+            switch ($this->config['verbose']) {
                 case false:
+                case GearmanManager::LOG_LEVEL_INFO:
                     $this->verbose = GearmanManager::LOG_LEVEL_INFO;
                     break;
                 case "v":
+                case GearmanManager::LOG_LEVEL_PROC_INFO:
                     $this->verbose = GearmanManager::LOG_LEVEL_PROC_INFO;
                     break;
                 case "vv":
+                case GearmanManager::LOG_LEVEL_WORKER_INFO:
                     $this->verbose = GearmanManager::LOG_LEVEL_WORKER_INFO;
                     break;
                 case "vvv":
+                case GearmanManager::LOG_LEVEL_DEBUG:
                     $this->verbose = GearmanManager::LOG_LEVEL_DEBUG;
                     break;
                 case "vvvv":
+                case GearmanManager::LOG_LEVEL_CRAZY:
                 default:
                     $this->verbose = GearmanManager::LOG_LEVEL_CRAZY;
                     break;
