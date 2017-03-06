@@ -566,6 +566,14 @@ abstract class GearmanManager {
             $this->config['exclude'] = array();
         }
 
+        if (empty($this->config['worker_initial_spawn_splay']) || ! is_numeric($this->config['worker_initial_spawn_splay'])) {
+            /**
+             * Don't start workers too fast. They can overwhelm the
+             * gearmand server and lead to connection timeouts.
+             */
+            $this->config['worker_initial_spawn_splay'] = 500000;
+        }
+
         /**
          * Debug option to dump the config and exit
          */
@@ -816,7 +824,7 @@ abstract class GearmanManager {
                  * Don't start workers too fast. They can overwhelm the
                  * gearmand server and lead to connection timeouts.
                  */
-                usleep(500000);
+                usleep($this->config['worker_initial_spawn_splay']);
             }
 
             foreach ($this->functions as $worker => $settings) {
@@ -848,7 +856,7 @@ abstract class GearmanManager {
                  * Don't start workers too fast. They can overwhelm the
                  * gearmand server and lead to connection timeouts.
                  */
-                usleep(500000);
+                usleep($this->config['worker_initial_spawn_splay']);
             }
 
         }
