@@ -35,8 +35,6 @@ namespace GearmanManager;
  *
  */
 
-declare(ticks = 1);
-
 error_reporting(E_ALL | E_STRICT);
 
 /**
@@ -79,6 +77,12 @@ abstract class GearmanManager {
      * kill off all running children
      */
     protected $stop_work = false;
+
+    /**
+     * When true, workers will stop looking for jobs and will be allowed to
+     * finish processing anything they're currently running
+     */
+    protected $stop_graceful = false;
 
     /**
      * The timestamp when the signal was received to stop working
@@ -245,10 +249,12 @@ abstract class GearmanManager {
          * Load up the workers
          */
         $this->load_workers();
+        pcntl_signal_dispatch();
 
         if (empty($this->functions)) {
             $this->log("No workers found");
             posix_kill($this->pid, SIGUSR1);
+            pcntl_signal_dispatch();
             exit();
         }
 
@@ -275,14 +281,18 @@ abstract class GearmanManager {
 
         $this->log("Exiting");
 
+        pcntl_signal_dispatch();
     }
 
     protected function process_loop() {
+
+        static $last_graceful_notice = 0;
 
         /**
          * Main processing loop for the parent process
          */
         while (!$this->stop_work || count($this->children)) {
+            pcntl_signal_dispatch();
 
             $status = null;
 
@@ -319,6 +329,12 @@ abstract class GearmanManager {
             if ($this->stop_work && time() - $this->stop_time > 60) {
                 $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
                 $this->stop_children(SIGKILL);
+            } elseif ($this->stop_graceful) {
+                $sec = time() - $last_graceful_notice;
+                if ($sec > 60) {
+                    $this->log("Children have not exited after $sec seconds.  Yielding to graceful shutdown.", GearmanManager::LOG_LEVEL_PROC_INFO);
+                    $last_graceful_notice = time();
+                }
             } else {
                 /**
                  *  If any children have been running 150% of max run time, forcibly terminate them
@@ -688,7 +704,8 @@ abstract class GearmanManager {
 
                     }
 
-                    $this->functions[$function]['path'] = $file;
+                    $this->functions[$function]['path'] = realpath($file);
+                    $this->functions[$function]['original_path'] = $file;
 
                     /**
                      * Note about priority. This exploits an undocumented feature
@@ -727,20 +744,24 @@ abstract class GearmanManager {
                 $this->parent_pid = $this->pid;
                 $this->pid = getmypid();
                 $this->$method();
+                pcntl_signal_dispatch();
                 break;
             case -1:
                 $this->log("Failed to fork");
                 $this->stop_work = true;
+                pcntl_signal_dispatch();
                 break;
             default:
                 $this->log("Helper forked with pid $pid", GearmanManager::LOG_LEVEL_PROC_INFO);
                 $this->helper_pid = $pid;
                 while ($this->wait_for_signal && !$this->stop_work) {
+                    pcntl_signal_dispatch();
                     usleep(5000);
                     pcntl_waitpid($pid, $status, WNOHANG);
 
                     if (pcntl_wifexited($status) && $status) {
                          $this->log("Helper child exited with non-zero exit code $status.");
+                         pcntl_signal_dispatch();
                          exit(1);
                     }
 
@@ -776,8 +797,18 @@ abstract class GearmanManager {
             $this->log("Running loop to check for new code", self::LOG_LEVEL_DEBUG);
             $last_check_time = 0;
             while (1) {
+                pcntl_signal_dispatch();
+
                 $max_time = 0;
-                foreach ($this->functions as $name => $func) {
+                foreach ($this->functions as $name => $func){
+                    clearstatcache(true);
+                    if (realpath($func['original_path']) !== $func['path']) {
+                        $this->log("Code patch changed.  Sending SIGHUP", self::LOG_LEVEL_PROC_INFO);
+                        posix_kill($this->parent_pid, SIGHUP);
+                        $this->load_workers();
+                        break;
+                    }
+
                     clearstatcache();
                     $mtime = filemtime($func['path']);
                     $max_time = max($max_time, $mtime);
@@ -926,6 +957,7 @@ abstract class GearmanManager {
 
                 $this->log("Child exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
 
+                pcntl_signal_dispatch();
                 exit();
 
                 break;
@@ -946,6 +978,7 @@ abstract class GearmanManager {
                     "start_time" => time(),
                 );
         }
+        pcntl_signal_dispatch();
 
     }
 
@@ -1026,9 +1059,14 @@ abstract class GearmanManager {
                 case SIGCONT:
                     $this->wait_for_signal = false;
                     break;
-                case SIGINT:
                 case SIGTERM:
-                    $this->log("Shutting down...");
+                    $this->log("Shutting down gracefully...");
+                    $this->stop_work = true;
+                    $this->stop_graceful = true;
+                    $this->stop_children();
+                    break;
+                case SIGINT:
+                    $this->log("Terminating...");
                     $this->stop_work = true;
                     $this->stop_time = time();
                     $term_count++;
@@ -1043,7 +1081,11 @@ abstract class GearmanManager {
                     if ($this->log_file) {
                         $this->open_log_file();
                     }
+                    // re-establish the path
+                    $this->load_workers();
+
                     $this->stop_children();
+
                     break;
                 default:
                 // handle all other signals

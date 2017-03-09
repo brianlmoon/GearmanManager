@@ -30,6 +30,7 @@ class GearmanPeclManager extends GearmanManager {
      *
      */
     protected function start_lib_worker($worker_list, $timeouts = array()) {
+        pcntl_signal_dispatch();
 
         $thisWorker = new \GearmanWorker();
 
@@ -57,7 +58,8 @@ class GearmanPeclManager extends GearmanManager {
 
         $start = time();
 
-        while (!$this->stop_work) {
+        while (!$this->stop_work){
+            pcntl_signal_dispatch();
 
             if (@$thisWorker->work() ||
                $thisWorker->returnCode() == GEARMAN_IO_WAIT ||
@@ -65,8 +67,9 @@ class GearmanPeclManager extends GearmanManager {
 
                 if ($thisWorker->returnCode() == GEARMAN_SUCCESS) continue;
 
-                if (!@$thisWorker->wait()) {
-                    if ($thisWorker->returnCode() == GEARMAN_NO_ACTIVE_FDS) {
+                if (!@$thisWorker->wait()){
+                    pcntl_signal_dispatch();
+                    if ($thisWorker->returnCode() == GEARMAN_NO_ACTIVE_FDS){
                         sleep(5);
                     }
                 }
@@ -89,8 +92,8 @@ class GearmanPeclManager extends GearmanManager {
 
         }
 
+        pcntl_signal_dispatch();
         $thisWorker->unregisterAll();
-
 
     }
 
@@ -220,6 +223,7 @@ class GearmanPeclManager extends GearmanManager {
                (!class_exists($real_func) || !method_exists($real_func, "run"))) {
                 $this->log("Function $real_func not found in ".$props["path"]);
                 posix_kill($this->pid, SIGUSR2);
+                pcntl_signal_dispatch();
                 exit();
             }
         }
