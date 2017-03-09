@@ -1,6 +1,8 @@
 <?php
 
-class Net_Gearman_Job_Fetch_Url extends Net_Gearman_Job_Common {
+use GearmanManager\Bridge\GearmanPearManager;
+
+class Fetch_Url extends Net_Gearman_Job_Common {
 
     public function run($workload) {
 

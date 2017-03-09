@@ -1,0 +1,2 @@
+# Example command line from base directory for running a PEAR GearmanManager
+./bin/pear_manager.php -w ./lib/pear-workers/ -c ./etc/config.ini -vvv
