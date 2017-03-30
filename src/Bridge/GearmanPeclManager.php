@@ -12,7 +12,7 @@ use \GearmanManager\GearmanManager;
  *
  */
 
-if (!class_exists("GearmanManager")) {
+if (!class_exists('\GearmanManager\GearmanManager')) {
     require __DIR__."/../GearmanManager.php";
 }
 
