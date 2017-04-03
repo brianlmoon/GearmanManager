@@ -6,3 +6,4 @@ if(!class_exists("GearmanManager\Bridge\GearmanPeclManager")) {
 }
 
 $gm = new GearmanManager\Bridge\GearmanPeclManager();
+pcntl_signal_dispatch();
