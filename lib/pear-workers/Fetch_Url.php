@@ -15,5 +15,3 @@ class Fetch_Url extends Net_Gearman_Job_Common {
     }
 
 }
-
-?>

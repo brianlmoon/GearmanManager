@@ -15,5 +15,3 @@ class Reverse_String extends Net_Gearman_Job_Common {
     }
 
 }
-
-?>
