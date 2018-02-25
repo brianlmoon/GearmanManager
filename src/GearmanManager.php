@@ -81,9 +81,18 @@ abstract class GearmanManager {
     protected $stop_work = false;
 
     /**
+     * The timestamp when the worker was started
+     */
+    protected $start_time;
+
+    /**
      * The timestamp when the signal was received to stop working
      */
     protected $stop_time = 0;
+
+    protected $last_idle_info_time;
+
+    protected $last_idle_debug_time;
 
     /**
      * The filename to log to
@@ -1055,6 +1064,62 @@ abstract class GearmanManager {
             }
         }
 
+    }
+
+    protected function worker_monitor($idle, $lastJob, $extra_message = null) {
+        /**
+         * Check the running time of the current child. If it has
+         * been too long, stop working.
+         */
+        if ($this->max_run_time > 0 && time() - $this->start_time > $this->max_run_time) {
+            $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
+            $this->stop_work = true;
+        }
+
+        if (!empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
+            $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
+            $this->stop_work = true;
+        }
+
+        if (!$this->stop_work) {
+
+            $time = time() - $lastJob;
+
+            if (empty($this->last_idle_info_time)) {
+                $this->last_idle_info_time = time();
+            }
+
+            if (empty($this->last_idle_debug_time)) {
+                $this->last_idle_debug_time = time();
+            }
+
+            // log as info once per minute
+            if (time() - $this->last_idle_info_time >= 60) {
+
+                $level = GearmanManager::LOG_LEVEL_WORKER_INFO;
+                $this->last_idle_info_time = time();
+
+            // log as debug every 10 seconds
+            } elseif (time() - $this->last_idle_debug_time >= 10) {
+
+                $level = GearmanManager::LOG_LEVEL_DEBUG;
+                $this->last_idle_debug_time = time();
+
+            } else {
+                // log as crazy on every call
+                $level = GearmanManager::LOG_LEVEL_CRAZY;
+            }
+
+            $idle_message = "Worker has been idle for $time seconds.";
+
+            if (!empty($extra_message)) {
+                $idle_message .= " ".trim($extra_message);
+            }
+
+            $this->log($idle_message, $level);
+        }
+
+        return $this->stop_work;
     }
 
     /**

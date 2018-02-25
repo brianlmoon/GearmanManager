@@ -23,11 +23,6 @@ class GearmanPearManager extends GearmanManager {
 
     public static $LOG = array();
 
-    private $start_time;
-
-    private $last_idle_info_time;
-    private $last_idle_debug_time;
-
     private $worker;
 
     /**
@@ -114,27 +109,9 @@ class GearmanPearManager extends GearmanManager {
      */
     public function monitor($idle, $lastJob) {
 
-        if ($this->max_run_time > 0 && time() - $this->start_time > $this->max_run_time) {
-            $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
-            $this->stop_work = true;
-        }
-
-        if (!empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
-            $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
-            $this->stop_work = true;
-        }
+        $extra_message = "";
 
         if (!$this->stop_work) {
-
-            $time = time() - $lastJob;
-
-            if (empty($this->last_idle_info_time)) {
-                $this->last_idle_info_time = time();
-            }
-
-            if (empty($this->last_idle_debug_time)) {
-                $this->last_idle_debug_time = time();
-            }
 
             $servers = $this->worker->connection_status();
 
@@ -150,43 +127,16 @@ class GearmanPearManager extends GearmanManager {
             }
 
 
-            /**
-             * If we are disconnected to any servers, log as info the idle status
-             * every 30 seconds.
-             *
-             * Otherwise, log it at an interval based on max run time if set.
-             */
-            if ((count($disconnected_servers) > 0 && time() - $this->last_idle_info_time >= 30) ||
-               ($this->max_run_time > 0 && time() - $this->last_idle_info_time >= $this->max_run_time/50)) {
-
-                $level = GearmanManager::LOG_LEVEL_WORKER_INFO;
-                $this->last_idle_info_time = time();
-
-            } elseif (time() - $this->last_idle_debug_time >= 10) {
-
-                $level = GearmanManager::LOG_LEVEL_DEBUG;
-                $this->last_idle_debug_time = time();
-
-            } else {
-
-                $level = GearmanManager::LOG_LEVEL_CRAZY;
-            }
-
-            $idle_message = "Worker as been idle for $time seconds.";
-
             if (count($connected_servers)) {
-                $idle_message.=" Connected to ".implode(",", $connected_servers).".";
+                $extra_message.= " Connected to ".implode(",", $connected_servers).".";
             }
 
             if (count($disconnected_servers)) {
-                $idle_message.=" Disconnected from ".implode(",", $disconnected_servers).".";
+                $extra_message.= " Disconnected from ".implode(",", $disconnected_servers).".";
             }
-
-            $this->log($idle_message, $level);
-
         }
 
-        return $this->stop_work;
+        return parent::worker_monitor($idle, $lastJob, $extra_message);
     }
 
     /**

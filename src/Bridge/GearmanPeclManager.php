@@ -55,38 +55,31 @@ class GearmanPeclManager extends GearmanManager {
             $thisWorker->addFunction($w, array($this, "do_job"), $this, $timeout);
         }
 
-        $start = time();
+        $lastJobTime = time();
 
         while (!$this->stop_work) {
+
+            $extra_message = "";
+            $idle = true;
 
             if (@$thisWorker->work() ||
                $thisWorker->returnCode() == GEARMAN_IO_WAIT ||
                $thisWorker->returnCode() == GEARMAN_NO_JOBS) {
 
-                if ($thisWorker->returnCode() == GEARMAN_SUCCESS) continue;
-
-                if (!@$thisWorker->wait()) {
-                    if ($thisWorker->returnCode() == GEARMAN_NO_ACTIVE_FDS) {
-                        sleep(5);
+                if ($thisWorker->returnCode() == GEARMAN_SUCCESS) {
+                    $lastJobTime = time();
+                    $idle = false;
+                } else {
+                    if (!@$thisWorker->wait()) {
+                        if ($thisWorker->returnCode() == GEARMAN_NO_ACTIVE_FDS) {
+                            sleep(3);
+                            $extra_message = "Disconnected from all servers.";
+                        }
                     }
                 }
-
             }
 
-            /**
-             * Check the running time of the current child. If it has
-             * been too long, stop working.
-             */
-            if ($this->max_run_time > 0 && time() - $start > $this->max_run_time) {
-                $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                $this->stop_work = true;
-            }
-
-            if (!empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
-                $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
-                $this->stop_work = true;
-            }
-
+            parent::worker_monitor($idle, $lastJobTime, $extra_message);
         }
 
         $thisWorker->unregisterAll();
