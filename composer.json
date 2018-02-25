@@ -8,26 +8,27 @@
     "authors": [
         {
             "name": "Brian Moon",
-            "homepage": "http://brian.moonspot.net"
+            "homepage": "http://brian.moonspot.net/gearmanmanager"
         }
     ],
     "suggest": {
-        "brianlmoon/net_gearman" : "A PHP interface for Gearman (requires version 1.0.*)",
-        "ext-gearman" : "PHP wrapper to libgearman"
+        "brianlmoon/net_gearman" : "A PHP interface for Gearman (requires version 2.0.*)",
     },
     "support": {
         "issues": "https://github.com/brianlmoon/GearmanManager/issues"
     },
     "require": {
-        "php": ">=5.5.9",
+        "php": ">=7.0.0",
         "ext-pcntl": "*",
         "ext-posix": "*"
     },
-    "bin": ["bin/pear_manager.php", "bin/pecl_manager.php"],
+    "bin": [
+        "bin/pear_manager.php",
+        "bin/pecl_manager.php"
+    ],
     "autoload": {
         "psr-4": {
             "GearmanManager\\": "src/"
         }
     }
 }
-
