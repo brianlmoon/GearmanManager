@@ -985,6 +985,8 @@ abstract class GearmanManager {
      */
     protected function register_ticks($parent=true) {
 
+        register_tick_function(array($this, 'tick_handler'));
+
         if ($parent) {
             $this->log("Registering signals for parent", GearmanManager::LOG_LEVEL_DEBUG);
             pcntl_signal(SIGTERM, array($this, "signal"));
@@ -1000,6 +1002,10 @@ abstract class GearmanManager {
                 exit();
             }
         }
+    }
+
+    public function tick_handler() {
+         pcntl_signal_dispatch();
     }
 
     /**
