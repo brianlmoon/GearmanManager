@@ -96,6 +96,7 @@ class GearmanPearManager extends GearmanManager {
         $this->worker->attachCallback(array($this, 'job_start'), \Net_Gearman_Worker::JOB_START);
         $this->worker->attachCallback(array($this, 'job_complete'), \Net_Gearman_Worker::JOB_COMPLETE);
         $this->worker->attachCallback(array($this, 'job_fail'), \Net_Gearman_Worker::JOB_FAIL);
+        $this->worker->attachCallback(array($this, 'worker_status'), \Net_Gearman_Worker::WORKER_STATUS);
 
         $this->start_time = time();
 
@@ -224,6 +225,18 @@ class GearmanPearManager extends GearmanManager {
         $this->log($message, GearmanManager::LOG_LEVEL_WORKER_INFO);
 
         $this->log_result($handle, $result);
+    }
+
+    /**
+     * Call back for worker status
+     */
+    public function worker_status($message, $server, $connected, $failed_conns) {
+
+        if (!empty($server) && strpos($message, $server) === false) {
+            $message .= " ($server)";
+        }
+
+        $this->log($message, GearmanManager::LOG_LEVEL_DEBUG);
     }
 
     /**
