@@ -1234,4 +1234,18 @@ abstract class GearmanManager {
         exit();
     }
 
+    /**
+     * The way this daemon implementation starts workers. 
+     *
+     * @param $worker_list
+     * @param $timeouts
+     * @return mixed
+     */
+    protected abstract function start_lib_worker($worker_list, $timeouts);
+
+
+    /**
+     * The way this daemon validates workers.
+     */
+    protected abstract function validate_lib_workers();
 }
