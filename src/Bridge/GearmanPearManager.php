@@ -63,7 +63,7 @@ class GearmanPearManager extends GearmanManager {
 
         } catch (Net_Gearman_Exception $e) {
 
-            $this->log($e->message, GearmanManager::LOG_LEVEL_WORKER_INFO);
+            $this->log($e->getMessage(), GearmanManager::LOG_LEVEL_WORKER_INFO);
             return;
 
         }
