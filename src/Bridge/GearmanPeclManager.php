@@ -80,12 +80,12 @@ class GearmanPeclManager extends GearmanManager {
              * Check the running time of the current child. If it has
              * been too long, stop working.
              */
-            if ($this->max_run_time > 0 && time() - $start > $this->max_run_time) {
+            if (!$this->stop_work && $this->max_run_time > 0 && time() - $start > $this->max_run_time) {
                 $this->log("Been running too long, exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $this->stop_work = true;
             }
 
-            if (!empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
+            if (!$this->stop_work && !empty($this->config["max_runs_per_worker"]) && $this->job_execution_count >= $this->config["max_runs_per_worker"]) {
                 $this->log("Ran $this->job_execution_count jobs which is over the maximum({$this->config['max_runs_per_worker']}), exiting", GearmanManager::LOG_LEVEL_WORKER_INFO);
                 $this->stop_work = true;
             }

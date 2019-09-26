@@ -7,6 +7,11 @@
     "license": "BSD-2-Clause",
     "authors": [
         {
+            "name": "Randall Kahler",
+            "email": "rkahler@cordial.com",
+            "homepage": "https://cordial.com"
+        },
+        {
             "name": "Brian Moon",
             "homepage": "http://brian.moonspot.net"
         }
@@ -16,7 +21,7 @@
         "ext-gearman" : "PHP wrapper to libgearman"
     },
     "support": {
-        "issues": "https://github.com/brianlmoon/GearmanManager/issues"
+        "issues": "https://github.com/CordialExperience/GearmanManager/issues"
     },
     "require": {
         "php": ">=5.5.9",

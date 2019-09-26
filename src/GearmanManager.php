@@ -326,7 +326,7 @@ abstract class GearmanManager {
             }
 
 
-            if ($this->stop_work && time() - $this->stop_time > 60) {
+            if ($this->stop_work && !$this->stop_graceful && time() - $this->stop_time > 60) {
                 $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
                 $this->stop_children(SIGKILL);
             } elseif ($this->stop_graceful) {
@@ -334,19 +334,6 @@ abstract class GearmanManager {
                 if ($sec > 60) {
                     $this->log("Children have not exited after $sec seconds.  Yielding to graceful shutdown.", GearmanManager::LOG_LEVEL_PROC_INFO);
                     $last_graceful_notice = time();
-                }
-            } else {
-                /**
-                 *  If any children have been running 150% of max run time, forcibly terminate them
-                 *  Cancel that, we'll actually let them finish
-                 */
-                if (!empty($this->children)) {
-                    foreach ($this->children as $pid => $child) {
-                        if (!empty($child['start_time']) && time() - $child['start_time'] > $this->max_run_time * 1.5) {
-                            $this->child_status_monitor($pid, $child["job"], "killed");
-                            //posix_kill($pid, SIGKILL);
-                        }
-                    }
                 }
             }
 
@@ -1025,6 +1012,7 @@ abstract class GearmanManager {
             pcntl_signal(SIGINT,  array($this, "signal"));
             pcntl_signal(SIGUSR1,  array($this, "signal"));
             pcntl_signal(SIGUSR2,  array($this, "signal"));
+            pcntl_signal(SIGTSTP, array($this, "signal"));
             pcntl_signal(SIGCONT,  array($this, "signal"));
             pcntl_signal(SIGHUP,  array($this, "signal"));
         } else {
@@ -1058,6 +1046,12 @@ abstract class GearmanManager {
                     break;
                 case SIGCONT:
                     $this->wait_for_signal = false;
+                    break;
+                case SIGTSTP:
+                    $this->log("Waiting for children before shutting down...");
+                    $this->stop_work = true;
+                    $this->stop_graceful = true;
+                    $this->stop_children(SIGTSTP);
                     break;
                 case SIGTERM:
                     $this->log("Shutting down gracefully...");
