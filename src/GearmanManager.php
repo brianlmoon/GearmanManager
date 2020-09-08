@@ -1235,7 +1235,7 @@ abstract class GearmanManager {
     }
 
     /**
-     * The way this daemon implementation starts workers. 
+     * The way this daemon implementation starts workers.
      *
      * @param $worker_list
      * @param $timeouts
