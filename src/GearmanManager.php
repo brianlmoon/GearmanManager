@@ -545,6 +545,11 @@ abstract class GearmanManager {
             if (!file_exists($dir)) {
                 $this->show_help("Worker dir ".$dir." not found");
             }
+            // resolve each worker directory to its real
+            // absolute path to be work with common deployment
+            // techniques that swap out a symlink and restart
+            // services.
+            $dir = realpath($dir);
         }
         unset($dir);
 
