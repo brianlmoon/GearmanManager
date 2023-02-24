@@ -96,11 +96,39 @@ class GearmanPearManager extends GearmanManager {
         $this->worker->attachCallback(array($this, 'job_start'), \Net_Gearman_Worker::JOB_START);
         $this->worker->attachCallback(array($this, 'job_complete'), \Net_Gearman_Worker::JOB_COMPLETE);
         $this->worker->attachCallback(array($this, 'job_fail'), \Net_Gearman_Worker::JOB_FAIL);
+        $this->worker->attachCallback(array($this, 'status'), \Net_Gearman_Worker::WORKER_STATUS);
 
         $this->start_time = time();
 
         $this->worker->beginWork(array($this, "monitor"));
 
+    }
+
+    /**
+     * Callback for worker status
+     *
+     * @param      <type>  $message       The message
+     * @param      <type>  $server        The server
+     * @param      <type>  $connected     The connected
+     * @param      int     $failed_conns  The failed conns
+     */
+    public function status($message, $server, $connected, $failed_conns) {
+
+        $level = GearmanManager::LOG_LEVEL_DEBUG;
+
+        if (!empty($server) && (!$connected || $failed_conns > 0)) {
+            $level = GearmanManager::LOG_LEVEL_WORKER_INFO;
+        }
+
+        if (!empty($server)) {
+            $message .= " (server: $server)";
+        }
+
+        if (!empty($failed_conns)) {
+            $message .= " (failed connections: $failed_conns)";
+        }
+
+        $this->log($message, $level);
     }
 
     /**
