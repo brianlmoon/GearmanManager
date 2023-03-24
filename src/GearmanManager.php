@@ -316,7 +316,7 @@ abstract class GearmanManager {
             }
 
 
-            if ($this->stop_work && time() - $this->stop_time > 60) {
+            if ($this->stop_work && time() - $this->stop_time > $this->config["graceful_shutdown_wait_time"]) {
                 $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
                 $this->stop_children(SIGKILL);
             } else {
@@ -1240,7 +1240,7 @@ abstract class GearmanManager {
     }
 
     /**
-     * The way this daemon implementation starts workers. 
+     * The way this daemon implementation starts workers.
      *
      * @param $worker_list
      * @param $timeouts
