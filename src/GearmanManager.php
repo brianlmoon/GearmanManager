@@ -316,7 +316,7 @@ abstract class GearmanManager {
             }
 
 
-            if ($this->stop_work && time() - $this->stop_time > $this->config["graceful_shutdown_wait_time"]) {
+            if ($this->stop_work && time() - $this->stop_time > ($this->config["graceful_shutdown_wait_time"] ?? 60)) {
                 $this->log("Children have not exited, killing.", GearmanManager::LOG_LEVEL_PROC_INFO);
                 $this->stop_children(SIGKILL);
             } else {
