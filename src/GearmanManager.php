@@ -37,8 +37,6 @@ namespace GearmanManager;
 
 declare(ticks = 1);
 
-error_reporting(E_ALL | E_STRICT);
-
 /**
  * Class that handles all the process management
  */
